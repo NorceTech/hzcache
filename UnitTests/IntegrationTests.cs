@@ -19,7 +19,7 @@ namespace UnitTests
     [TestClass]
     public class IntegrationTests
     {
-        [TestMethod]
+        [TestMethod, TestCategory("Integration")]
         public async Task TestRedisBackplaneInvalidation()
         {
             RedisBackplaneHzCache c1 = new RedisBackplaneHzCache(new RedisBackplanceMemoryMemoryCacheOptions
@@ -43,7 +43,7 @@ namespace UnitTests
             Assert.IsNotNull(c2.Get<Mocko>("1"));
         }
         
-        [TestMethod]
+        [TestMethod, TestCategory("Integration")]
         public async Task TestDistributedInvalidationPerformance()
         {
             RedisBackplaneHzCache c1 = new RedisBackplaneHzCache(new RedisBackplanceMemoryMemoryCacheOptions
