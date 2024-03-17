@@ -13,12 +13,12 @@ namespace RedisBackplane
         public string instanceId { get; set; }
     }
 
-    public class RedisBackplaneMemoryHzCache : IHzCache
+    public class RedisBackplaneHzCache : IHzCache
     {
-        private readonly IHzCache hzCache;
+        private readonly IDetailedHzCache hzCache;
         private readonly string instanceId = Guid.NewGuid().ToString();
 
-        public RedisBackplaneMemoryHzCache(RedisBackplanceMemoryMemoryCacheOptions options)
+        public RedisBackplaneHzCache(RedisBackplanceMemoryMemoryCacheOptions options)
         {
             var redis = ConnectionMultiplexer.Connect(options.redisConnectionString);
             hzCache = new hzcache.HzMemoryCache(new HzCacheOptions
@@ -98,9 +98,9 @@ namespace RedisBackplane
             return hzCache.GetOrSet(key, valueFactory, ttl);
         }
 
-        public bool Remove(string key, bool sendNotification = true, Func<string, bool>? removeValidator = null)
+        public bool Remove(string key)
         {
-            return hzCache.Remove(key, sendNotification, removeValidator);
+            return hzCache.Remove(key);
         }
     }
 }

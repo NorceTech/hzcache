@@ -1,4 +1,0 @@
-
-‚csharpsquid:S3928#"^The parameter name 'Redis connection string is required' is not declared in the argument list.(¹¦º¬8ôõş–ä1
-ƒcsharpsquid:S3928("_The parameter name 'Application cache prefix is required' is not declared in the argument list.(ùş’Ÿ8»¥—ä1
-}csharpsquid:S1450"TRemove the field 'redis' and declare it as a local variable in the relevant methods.(ôïØûúÿÿÿÿ8°øÛ”ä1
