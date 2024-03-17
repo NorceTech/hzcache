@@ -17,17 +17,47 @@ namespace hzcache
         AddOrUpdate, Remove, Expire
     }
 
+    /// <summary>
+    ///     The eviction policy to use for the cache.
+    ///     LRU is "Least Recently Used" and FIFO is "First In First Out". Which is almost true.
+    ///     LRU means that the item expiry TTL is extended on read, and FIFO means that the item
+    ///     expiry TTL is set on write. So if all items have the same expiry, then it's LRU and FIFO.
+    /// </summary>
     public enum EvictionPolicy
     {
         LRU, FIFO
     }
 
+    /// <summary>
+    ///     Configuration options for hzcache.
+    /// </summary>
     public class HzCacheOptions
     {
+        /// <summary>
+        ///     How frequently the cache should clean up expired items. Defaults to 1 second.
+        /// </summary>
         public int cleanupJobInterval { get; set; } = 1000;
+
+        /// <summary>
+        ///     The default TTL for items added to the cache. Defaults to 5 minutes.
+        /// </summary>
         public TimeSpan defaultTTL { get; set; } = TimeSpan.FromMinutes(5);
-        public Action<string, CacheItemChangeType, string?, long, bool> valueChangeListener { get; set; } = (_, _, _, _, _) => { };
-        public bool asyncNotifications { get; set; }
+
+        /// <summary>
+        ///     The listener for value changes in the cache. The first parameter is the key, the second is the change type,
+        ///     the third is the checksum of the value, the fourth is the insert timestamp (Unix Time in ms) of the item,
+        ///     and the fifth is a boolean indicating if the key is a regex pattern.
+        /// </summary>
+        public Action<string, CacheItemChangeType, string?, long, bool>? valueChangeListener { get; set; }
+
+        /// <summary>
+        ///     Whether or not to send notifications asynchronously. Defaults to true.
+        /// </summary>
+        public bool asyncNotifications { get; set; } = true;
+
+        /// <summary>
+        ///     Eviction policy to use for the cache. Defaults to LRU.
+        /// </summary>
         public EvictionPolicy evictionPolicy { get; set; } = EvictionPolicy.LRU;
     }
 
@@ -102,8 +132,8 @@ namespace hzcache
         /// </summary>
         /// <param name="key">The key of the element to remove</param>
         /// <param name="sendBackplaneNotification">Send backplane notification or not</param>
-        /// <param name="skipRemoveIfEqualFunc">If function returns true, skip removing the entry</param>
-        bool Remove(string key, bool sendBackplaneNotification = true, Func<string?, bool>? skipRemoveIfEqualFunc = null);
+        /// <param name="checksumEqualsFunc">If function returns true, skip removing the entry</param>
+        bool Remove(string key, bool sendBackplaneNotification = true, Func<string?, bool>? checksumEqualsFunc = null);
     }
 
     /// <summary>
@@ -207,8 +237,10 @@ namespace hzcache
 
         public void Set<T>(string key, T? value, TimeSpan ttl) where T : class
         {
-            var v = new TTLValue(value, ttl, checksumAndNotifyQueue, options.asyncNotifications,
-                tv => NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv.checksum, tv.timestampCreated));
+            Action<TTLValue>? valueChangeListener = options.valueChangeListener != null
+                ? tv => NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv.checksum, tv.timestampCreated)
+                : null;
+            var v = new TTLValue(value, ttl, checksumAndNotifyQueue, options.asyncNotifications, valueChangeListener);
             dictionary[key] = v;
         }
 
@@ -221,10 +253,10 @@ namespace hzcache
             }
 
             value = valueFactory(key);
-            var ttlValue = new TTLValue(value, ttl, checksumAndNotifyQueue, options.asyncNotifications, tv =>
-            {
-                NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv.checksum, tv.timestampCreated);
-            });
+            Action<TTLValue>? valueChangeListener = options.valueChangeListener != null
+                ? tv => NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv.checksum, tv.timestampCreated)
+                : null;
+            var ttlValue = new TTLValue(value, ttl, checksumAndNotifyQueue, options.asyncNotifications, valueChangeListener);
             dictionary[key] = ttlValue;
             return value;
         }
@@ -235,9 +267,9 @@ namespace hzcache
         }
 
 
-        public bool Remove(string key, bool sendBackplaneNotification, Func<string?, bool>? skipRemoveIfEqualFunc = null)
+        public bool Remove(string key, bool sendBackplaneNotification, Func<string?, bool>? checksumEqualsFunc = null)
         {
-            return RemoveItem(key, CacheItemChangeType.Remove, sendBackplaneNotification, skipRemoveIfEqualFunc);
+            return RemoveItem(key, CacheItemChangeType.Remove, sendBackplaneNotification, checksumEqualsFunc);
         }
 
         public void Dispose()
@@ -263,9 +295,15 @@ namespace hzcache
             finally { globalStaticLock.Release(); }
         }
 
-        private bool RemoveItem(string key, CacheItemChangeType changeType, bool sendNotification, Func<string?, bool>? skipRemoveIfEqualFunc = null)
+        private bool RemoveItem(string key, CacheItemChangeType changeType, bool sendNotification, Func<string?, bool>? checksumEqualsFunc = null)
         {
-            if (!dictionary.TryGetValue(key, out TTLValue ttlValue) || (skipRemoveIfEqualFunc != null && skipRemoveIfEqualFunc.Invoke(ttlValue.checksum)))
+            var valueExists = dictionary.TryGetValue(key, out TTLValue ttlValue);
+            if (!valueExists)
+            {
+                return false;
+            }
+
+            if (checksumEqualsFunc?.Invoke(ttlValue.checksum) ?? false)
             {
                 return false;
             }
@@ -286,7 +324,7 @@ namespace hzcache
 
         private void NotifyItemChange(string key, CacheItemChangeType changeType, string? checksum, long timestamp, bool isRegexp = false)
         {
-            options.valueChangeListener.Invoke(key, changeType, checksum, timestamp, isRegexp);
+            options.valueChangeListener?.Invoke(key, changeType, checksum, timestamp, isRegexp);
         }
 
         protected virtual void Dispose(bool disposing)

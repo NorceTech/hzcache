@@ -23,10 +23,10 @@ namespace UnitTests
         public async Task TestRedisBackplaneInvalidation()
         {
             var c1 = new RedisBackplaneHzCache(
-                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1"});
+                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "trbpi", instanceId = "c1"});
             await Task.Delay(200);
             var c2 = new RedisBackplaneHzCache(
-                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2"});
+                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "trbpi", instanceId = "c2"});
 
             Console.WriteLine("Adding 1 to c1");
             c1.Set("1", new Mocko(1));
@@ -45,22 +45,30 @@ namespace UnitTests
         {
             var c1 = new RedisBackplaneHzCache(new RedisBackplanceMemoryMemoryCacheOptions
             {
-                redisConnectionString = "localhost", applicationCachePrefix = "test", defaultTTL = TimeSpan.FromMinutes(5)
+                redisConnectionString = "localhost",
+                applicationCachePrefix = "tdip",
+                defaultTTL = TimeSpan.FromMinutes(5),
+                asyncNotifications = false,
+                instanceId = "c1"
             });
 
             var c2 = new RedisBackplaneHzCache(new RedisBackplanceMemoryMemoryCacheOptions
             {
-                redisConnectionString = "localhost:6379", applicationCachePrefix = "test", defaultTTL = TimeSpan.FromMinutes(5)
+                redisConnectionString = "localhost:6379",
+                applicationCachePrefix = "tdip",
+                defaultTTL = TimeSpan.FromMinutes(5),
+                asyncNotifications = false,
+                instanceId = "c2"
             });
 
-            Console.WriteLine("Adding 1 to c1");
-            c1.Set("1", new Mocko(1));
+            Console.WriteLine("Adding '10' to c1");
+            c1.Set("10", new Mocko(1));
             await Task.Delay(10);
-            Console.WriteLine("Adding 1 to c2");
-            c2.Set("1", new Mocko(1));
-            await Task.Delay(20);
-            Assert.IsNotNull(c1.Get<Mocko>("1"));
-            Assert.IsNotNull(c2.Get<Mocko>("1"));
+            Console.WriteLine("Adding '10' to c2");
+            c2.Set("10", new Mocko(1));
+            await Task.Delay(1000);
+            Assert.IsNotNull(c1.Get<Mocko>("10"));
+            Assert.IsNotNull(c2.Get<Mocko>("10"));
 
             var start = Stopwatch.StartNew();
             var iterations = 1000.0d;

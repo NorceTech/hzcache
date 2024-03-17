@@ -20,18 +20,19 @@ namespace RedisBackplaneMemoryCache
 
         public RedisBackplaneHzCache(RedisBackplanceMemoryMemoryCacheOptions options)
         {
+            instanceId = options.instanceId ?? instanceId;
             var redis = ConnectionMultiplexer.Connect(options.redisConnectionString);
             hzCache = new HzMemoryCache(new HzCacheOptions
             {
                 evictionPolicy = options.evictionPolicy,
                 cleanupJobInterval = options.cleanupJobInterval,
+                asyncNotifications = options.asyncNotifications,
                 valueChangeListener = (key, changeType, checksum, timestamp, isRegexp) =>
                 {
                     options.valueChangeListener?.Invoke(key, changeType, checksum, timestamp, isRegexp);
                     var redisChannel = new RedisChannel(options.applicationCachePrefix, RedisChannel.PatternMode.Auto);
-                    var messageObject = new RedisInvalidationMessage(instanceId, key, checksum, timestamp, isRegexp);
+                    var messageObject = new RedisInvalidationMessage(options.applicationCachePrefix, instanceId, key, checksum, timestamp, isRegexp);
                     redis.GetSubscriber().PublishAsync(redisChannel, new RedisValue(JsonSerializer.ToJsonString(messageObject)));
-                    Console.WriteLine("NotifyValueChange for " + key + " on instance " + instanceId);
                 },
                 defaultTTL = options.defaultTTL
             });
@@ -54,7 +55,10 @@ namespace RedisBackplaneMemoryCache
             redis.GetSubscriber().Subscribe(options.applicationCachePrefix, (_, message) =>
             {
                 var invalidationMessage = JsonSerializer.Deserialize<RedisInvalidationMessage>(message.ToString());
-                Console.WriteLine("[" + instanceId + "] Received message for key " + invalidationMessage.key + " from " + invalidationMessage.instanceId);
+                if (invalidationMessage.applicationCachePrefix != options.applicationCachePrefix)
+                {
+                    return;
+                }
 
                 if (invalidationMessage.instanceId != instanceId)
                 {
