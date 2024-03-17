@@ -1,0 +1,19 @@
+
+9
+	README.md,8/e/8ec9a00bfd09b3190ac6b22251dbb1aa95a0579d
+p
+@SimpleMemoryCache.Benchmarks/SimpleMemoryCache.Benchmarks.csproj,8/f/8f59795cd88e6a3aba0889012df1e652966ae26d
+¦
+vRedisBackplaneMemoryCache/obj/Debug/netstandard2.0/RedisBackplaneMemoryCache.GeneratedMSBuildEditorConfig.editorconfig,4/6/462d33e58dd8a6b502c6991e03accdf57d347893
+W
+'SimpleMemoryCache.Benchmarks/Program.cs,e/9/e99f99fc07810f7ab850b602fe08141b6970be83
+¤
+tSimpleMemoryCache.Benchmarks/obj/Debug/net6.0/SimpleMemoryCache.Benchmarks.GeneratedMSBuildEditorConfig.editorconfig,b/0/b089ffbb2695d6cd5a08af6b61322bc3ca5553b4
+|
+LSimpleMemoryCache/obj/Debug/netstandard2.0/SimpleMemoryCache.AssemblyInfo.cs,a/4/a4f00116d891381b95edc517751581be871a2f32
+–
+fSimpleMemoryCache/obj/Debug/netstandard2.0/SimpleMemoryCache.GeneratedMSBuildEditorConfig.editorconfig,8/4/84fa8524bfccd8802212e893201da75e536d35f5
+Z
+*SimpleMemoryCache/SimpleMemoryCache.csproj,d/a/da3498410fb0431624c85d3477d1f814122ce125
+7
+LICENSE,0/3/0398ccd0f49298b10a3d76a47800d2ebecd49859

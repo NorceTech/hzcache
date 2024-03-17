@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="NRedisStack" Version="0.12.0" />
+      <PackageReference Include="System.Text.Json" Version="8.0.3" />
+      <PackageReference Include="Utf8Json" Version="1.3.7" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\HzMemoryCache\HzMemoryCache.csproj" />
+    </ItemGroup>
+
+</Project>

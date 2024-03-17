@@ -1,0 +1,6 @@
+
+‚csharpsquid:S3928)"^The parameter name 'Redis connection string is required' is not declared in the argument list.(¹¦º¬8Ğ¦¶˜ä1
+ƒcsharpsquid:S3928."_The parameter name 'Application cache prefix is required' is not declared in the argument list.(ùş’Ÿ8»¥—ä1
+Xcsharpsquid:S1066B"/Merge this if statement with the enclosing one.(»ƒâ·üÿÿÿÿ8ÒêÌàä1
+wcsharpsquid:S927n"TRename parameter 'removeValidator' to 'areEqual' to match the interface declaration.(ìÅş¡8¨ä1
+Gcsharpsquid:S125="Remove this commented out code.(Ô¨Šúÿÿÿÿ8öŸäàä1

@@ -1,0 +1,4 @@
+
+mcsharpsquid:S3881]"KFix this implementation of 'IDisposable' to conform to the dispose pattern.(¨§Ùïûÿÿÿÿ
+ˆcsharpsquid:S927ü"fRename parameter 'sendNotification' to 'sendBackplaneNotification' to match the interface declaration.(ðˆ‰…ýÿÿÿÿ
+€csharpsquid:S927ü"^Rename parameter 'areEqualFunc' to 'skipRemoveIfEqualFunc' to match the interface declaration.(ðˆ‰…ýÿÿÿÿ
