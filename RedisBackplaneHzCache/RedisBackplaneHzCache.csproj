@@ -2,8 +2,8 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <PackageId>RedisBackplanceHzCache</PackageId>
-    <Title>RedisBackplanceHzCache</Title>
+    <PackageId>RedisBackplaneHzCache</PackageId>
+    <Title>RedisBackplaneHzCache</Title>
     <Authors>Anders Heintz</Authors>
     <Product>HzCache</Product>
     <RepositoryUrl>https://github.com/aheintz/hzcache</RepositoryUrl>

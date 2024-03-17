@@ -23,10 +23,10 @@ namespace UnitTests
         public async Task TestRedisBackplaneInvalidation()
         {
             var c1 = new RedisBackplaneHzCache(
-                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "trbpi", instanceId = "c1", asyncNotifications = false});
+                new RedisBackplaneMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "trbpi", instanceId = "c1", asyncNotifications = false});
             await Task.Delay(200);
             var c2 = new RedisBackplaneHzCache(
-                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "trbpi", instanceId = "c2", asyncNotifications = false});
+                new RedisBackplaneMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "trbpi", instanceId = "c2", asyncNotifications = false});
 
             Console.WriteLine("Adding 1 to c1");
             c1.Set("1", new Mocko(1));
@@ -43,7 +43,7 @@ namespace UnitTests
         [TestCategory("Integration")]
         public async Task TestDistributedInvalidationPerformance()
         {
-            var c1 = new RedisBackplaneHzCache(new RedisBackplanceMemoryMemoryCacheOptions
+            var c1 = new RedisBackplaneHzCache(new RedisBackplaneMemoryMemoryCacheOptions
             {
                 redisConnectionString = "localhost",
                 applicationCachePrefix = "tdip",
@@ -52,7 +52,7 @@ namespace UnitTests
                 instanceId = "c1"
             });
 
-            var c2 = new RedisBackplaneHzCache(new RedisBackplanceMemoryMemoryCacheOptions
+            var c2 = new RedisBackplaneHzCache(new RedisBackplaneMemoryMemoryCacheOptions
             {
                 redisConnectionString = "localhost:6379",
                 applicationCachePrefix = "tdip",
