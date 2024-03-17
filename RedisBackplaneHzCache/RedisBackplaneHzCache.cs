@@ -6,7 +6,7 @@ using Utf8Json;
 
 namespace RedisBackplaneMemoryCache
 {
-    public class RedisBackplanceMemoryMemoryCacheOptions : HzCacheOptions
+    public class RedisBackplaneMemoryMemoryCacheOptions : HzCacheOptions
     {
         public string redisConnectionString { get; set; }
         public string applicationCachePrefix { get; set; }
@@ -18,7 +18,7 @@ namespace RedisBackplaneMemoryCache
         private readonly IDetailedHzCache hzCache;
         private readonly string instanceId = Guid.NewGuid().ToString();
 
-        public RedisBackplaneHzCache(RedisBackplanceMemoryMemoryCacheOptions options)
+        public RedisBackplaneHzCache(RedisBackplaneMemoryMemoryCacheOptions options)
         {
             instanceId = options.instanceId ?? instanceId;
             var redis = ConnectionMultiplexer.Connect(options.redisConnectionString);
