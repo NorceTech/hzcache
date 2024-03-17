@@ -24,7 +24,8 @@ namespace hzcache
     {
         public int cleanupJobInterval { get; set; } = 1000;
         public TimeSpan defaultTTL { get; set; } = TimeSpan.FromMinutes(5);
-        public Action<string, CacheItemChangeType, string, long, bool> valueChangeListener { get; set; } = (_, _, _, _, _) => { };
+        public Action<string, CacheItemChangeType, string?, long, bool> valueChangeListener { get; set; } = (_, _, _, _, _) => { };
+        public bool asyncNotifications { get; set; }
         public EvictionPolicy evictionPolicy { get; set; } = EvictionPolicy.LRU;
     }
 
@@ -175,7 +176,7 @@ namespace hzcache
             return false;
         }
 
-        private void NotifyItemChange(string key, CacheItemChangeType changeType, string checksum, long timestamp, bool isRegexp = false)
+        private void NotifyItemChange(string key, CacheItemChangeType changeType, string? checksum, long timestamp, bool isRegexp = false)
         {
             options.valueChangeListener.Invoke(key, changeType, checksum, timestamp, isRegexp);
         }
@@ -186,14 +187,9 @@ namespace hzcache
             {
                 try
                 {
-                    var currTime = Environment.TickCount;
-
-                    foreach (var p in dictionary)
+                    foreach (var p in dictionary.Where(p => p.Value.IsExpired()))
                     {
-                        if (currTime > p.Value.tickCountWhenToKill)
-                        {
-                            RemoveItem(p.Key, CacheItemChangeType.Expire, true);
-                        }
+                        RemoveItem(p.Key, CacheItemChangeType.Expire, true);
                     }
                 }
                 finally
@@ -244,7 +240,8 @@ namespace hzcache
 
         public void Set<T>(string key, T? value, TimeSpan ttl) where T : class
         {
-            var v = new TTLValue(value, ttl, checksumAndNotifyQueue, false, tv => NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv.checksum, tv.timestampCreated));
+            var v = new TTLValue(value, ttl, checksumAndNotifyQueue, options.asyncNotifications,
+                tv => NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv.checksum, tv.timestampCreated));
             dictionary[key] = v;
         }
 
@@ -255,7 +252,7 @@ namespace hzcache
                 return value;
 
             value = valueFactory(key);
-            var ttlValue = new TTLValue(value, ttl, checksumAndNotifyQueue, true, tv =>
+            var ttlValue = new TTLValue(value, ttl, checksumAndNotifyQueue, options.asyncNotifications, tv =>
             {
                 NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv.checksum, tv.timestampCreated);
             });
@@ -269,9 +266,9 @@ namespace hzcache
         }
 
 
-        public bool Remove(string key, bool sendNotification = true, Func<string, bool>? areEqualFunc = null)
+        public bool Remove(string key, bool sendBackplaneNotification = true, Func<string, bool>? skipRemoveIfEqualFunc = null)
         {
-            return RemoveItem(key, CacheItemChangeType.Remove, sendNotification, areEqualFunc);
+            return RemoveItem(key, CacheItemChangeType.Remove, sendBackplaneNotification, skipRemoveIfEqualFunc);
         }
 
         //IDispisable members

@@ -9,7 +9,7 @@ BenchmarkRunner.Run<BenchMark>();
 [ShortRunJob, MemoryDiagnoser]
 public class BenchMark
 {
-    private static hzcache.HzMemoryCache _hzCache = new hzcache.HzMemoryCache(new HzCacheOptions {cleanupJobInterval = 600_000});
+    private static HzMemoryCache _hzCache = new hzcache.HzMemoryCache(new HzCacheOptions {cleanupJobInterval = 600_000, asyncNotifications = true});
     private static ConcurrentDictionary<string, int> _dict = new();
 
     private static DateTime _dtPlus10Mins = DateTime.Now.AddMinutes(10);

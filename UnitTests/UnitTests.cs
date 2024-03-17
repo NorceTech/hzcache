@@ -30,6 +30,7 @@ namespace UnitTests
                 new HzCacheOptions
                 {
                     cleanupJobInterval = 50,
+                    asyncNotifications = false,
                     valueChangeListener = (_, changeType, _, _, _) =>
                     {
                         switch (changeType)
@@ -47,19 +48,14 @@ namespace UnitTests
                     }
                 });
             cache.Set("mock2", new MockObject(1));
-            await Task.Delay(200);
             Assert.AreEqual(1, addOrUpdates);
             cache.Set("mock2", new MockObject(2));
-            await Task.Delay(100);
             Assert.AreEqual(2, addOrUpdates);
             cache.Remove("mock2");
-            await Task.Delay(100);
             Assert.AreEqual(1, removals);
             cache.Remove("mock2");
-            await Task.Delay(100);
             Assert.AreEqual(1, removals);
             cache.GetOrSet("m", (_) => new MockObject(1), TimeSpan.FromMilliseconds(100));
-            await Task.Delay(100);
             Assert.AreEqual(3, addOrUpdates);
             await Task.Delay(200);
             Assert.AreEqual(1, expires);
