@@ -1,8 +1,6 @@
 #nullable enable
 using System;
 using System.Collections.Concurrent;
-using System.IO;
-using System.Threading.Tasks;
 
 namespace hzcache
 {
@@ -12,7 +10,7 @@ namespace hzcache
         private int tickCountWhenToKill;
         private readonly int ttlInMs;
         public long timestampCreated { get; }
-        public string checksum { get; set; }
+        public string? checksum { get; private set; }
         private readonly Action<TTLValue>? postCompletionCallback;
 
 
@@ -47,7 +45,7 @@ namespace hzcache
             }
             catch (Exception e)
             {
-                Console.WriteLine("error " + e.ToString());
+                Console.WriteLine("error " + e);
             }
         }
 

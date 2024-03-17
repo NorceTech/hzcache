@@ -4,7 +4,7 @@ using hzcache;
 using StackExchange.Redis;
 using Utf8Json;
 
-namespace RedisBackplane
+namespace RedisBackplaneMemoryCache
 {
     public class RedisBackplanceMemoryMemoryCacheOptions : HzCacheOptions
     {
@@ -21,7 +21,7 @@ namespace RedisBackplane
         public RedisBackplaneHzCache(RedisBackplanceMemoryMemoryCacheOptions options)
         {
             var redis = ConnectionMultiplexer.Connect(options.redisConnectionString);
-            hzCache = new hzcache.HzMemoryCache(new HzCacheOptions
+            hzCache = new HzMemoryCache(new HzCacheOptions
             {
                 evictionPolicy = options.evictionPolicy,
                 cleanupJobInterval = options.cleanupJobInterval,
@@ -38,12 +38,12 @@ namespace RedisBackplane
 
             if (string.IsNullOrWhiteSpace(options.redisConnectionString))
             {
-                throw new ArgumentNullException("Redis connection string is required");
+                throw new ArgumentException("Redis connection string is required");
             }
 
             if (string.IsNullOrWhiteSpace(options.applicationCachePrefix))
             {
-                throw new ArgumentNullException("Application cache prefix is required");
+                throw new ArgumentException("Application cache prefix is required");
             }
 
             if (!string.IsNullOrWhiteSpace(options.instanceId))
@@ -51,7 +51,7 @@ namespace RedisBackplane
                 instanceId = options.instanceId;
             }
 
-            redis.GetSubscriber().Subscribe(options.applicationCachePrefix, (channel, message) =>
+            redis.GetSubscriber().Subscribe(options.applicationCachePrefix, (_, message) =>
             {
                 var invalidationMessage = JsonSerializer.Deserialize<RedisInvalidationMessage>(message.ToString());
                 Console.WriteLine("["+instanceId+"] Received message for key "+invalidationMessage.key+ " from "+invalidationMessage.instanceId);

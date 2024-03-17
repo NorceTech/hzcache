@@ -65,11 +65,11 @@ namespace UnitTests
         public async Task TestRemoveByRegexp()
         {
             var removals = 0;
-            var cache = new hzcache.HzMemoryCache(
+            var cache = new HzMemoryCache(
                 new HzCacheOptions
                 {
                     cleanupJobInterval = 200,
-                    valueChangeListener = async (key, changeType, _, _, _) =>
+                    valueChangeListener = (key, changeType, _, _, _) =>
                     {
                         switch (changeType)
                         {
@@ -109,7 +109,7 @@ namespace UnitTests
         [TestMethod]
         public async Task TestGetSetCleanup()
         {
-            var cache = new hzcache.HzMemoryCache(new HzCacheOptions {cleanupJobInterval = 200});
+            var cache = new HzMemoryCache(new HzCacheOptions {cleanupJobInterval = 200});
             cache.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
             var v = cache.Get<MockObject>("42");
             Assert.IsTrue(v != null);
@@ -122,10 +122,10 @@ namespace UnitTests
         [TestMethod]
         public async Task TestEviction()
         {
-            var list = new List<hzcache.HzMemoryCache>();
+            var list = new List<HzMemoryCache>();
             for (int i = 0; i < 20; i++)
             {
-                var cache = new hzcache.HzMemoryCache(new HzCacheOptions {cleanupJobInterval = 200});
+                var cache = new HzMemoryCache(new HzCacheOptions {cleanupJobInterval = 200});
                 cache.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
                 list.Add(cache);
             }
@@ -147,7 +147,7 @@ namespace UnitTests
         [TestMethod]
         public async Task Shortdelay()
         {
-            var cache = new hzcache.HzMemoryCache();
+            var cache = new HzMemoryCache();
             cache.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(500));
 
             await Task.Delay(20);
@@ -160,7 +160,7 @@ namespace UnitTests
         [TestMethod]
         public async Task TestWithDefaultJobInterval()
         {
-            var cache2 = new hzcache.HzMemoryCache();
+            var cache2 = new HzMemoryCache();
             cache2.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
             Assert.IsNotNull(cache2.Get<MockObject>("42"));
             await Task.Delay(150);
@@ -170,7 +170,7 @@ namespace UnitTests
         [TestMethod]
         public void TestRemove()
         {
-            var cache = new hzcache.HzMemoryCache();
+            var cache = new HzMemoryCache();
             cache.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
             cache.Remove("42");
             Assert.IsNull(cache.Get<MockObject>("42"));
@@ -179,7 +179,7 @@ namespace UnitTests
         [TestMethod]
         public void TestTryRemove()
         {
-            var cache = new hzcache.HzMemoryCache();
+            var cache = new HzMemoryCache();
             cache.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
             var res = cache.Remove("42");
             Assert.IsTrue(res);
@@ -192,7 +192,7 @@ namespace UnitTests
         [TestMethod]
         public async Task TestTryRemoveWithTtl()
         {
-            var cache = new hzcache.HzMemoryCache();
+            var cache = new HzMemoryCache();
             cache.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
             await Task.Delay(120); //let the item expire
 
@@ -203,7 +203,7 @@ namespace UnitTests
         [TestMethod]
         public void TestClear()
         {
-            var cache = new hzcache.HzMemoryCache();
+            var cache = new HzMemoryCache();
             cache.GetOrSet("key", _ => new MockObject(1024), TimeSpan.FromSeconds(100));
 
             cache.Clear();
@@ -214,7 +214,7 @@ namespace UnitTests
         [TestMethod]
         public void TestNullValue()
         {
-            var cache = new hzcache.HzMemoryCache();
+            var cache = new HzMemoryCache();
             cache.Set<MockObject>("key", null, TimeSpan.FromSeconds(100));
             Assert.IsNull(cache.Get<MockObject>("key"));
         }
@@ -222,8 +222,8 @@ namespace UnitTests
         [TestMethod]
         public async Task TestLRUPolicy()
         {
-            var cache = new hzcache.HzMemoryCache(new HzCacheOptions {evictionPolicy = EvictionPolicy.LRU, cleanupJobInterval = 50});
-            cache.Set<MockObject>("key", new MockObject(1), TimeSpan.FromMilliseconds(120));
+            var cache = new HzMemoryCache(new HzCacheOptions {evictionPolicy = EvictionPolicy.LRU, cleanupJobInterval = 50});
+            cache.Set("key", new MockObject(1), TimeSpan.FromMilliseconds(120));
             Assert.IsNotNull(cache.Get<MockObject>("key"));
             await Task.Delay(100);
             Assert.IsNotNull(cache.Get<MockObject>("key"));
@@ -236,7 +236,7 @@ namespace UnitTests
         [TestMethod]
         public async Task TestFIFOPolicy()
         {
-            var cache = new hzcache.HzMemoryCache(new HzCacheOptions {evictionPolicy = EvictionPolicy.FIFO, cleanupJobInterval = 50});
+            var cache = new HzMemoryCache(new HzCacheOptions {evictionPolicy = EvictionPolicy.FIFO, cleanupJobInterval = 50});
             cache.Set("key", new MockObject(1), TimeSpan.FromMilliseconds(220));
             await Task.Delay(100);
             Assert.IsNotNull(cache.Get<MockObject>("key"));
@@ -249,7 +249,7 @@ namespace UnitTests
         [TestMethod]
         public async Task TestTtlExtended()
         {
-            var cache = new hzcache.HzMemoryCache();
+            var cache = new HzMemoryCache();
             cache.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(300));
 
             await Task.Delay(50);

@@ -1,8 +1,6 @@
 #nullable enable
 using System;
-using System.Collections;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -10,6 +8,10 @@ using System.Threading.Tasks;
 
 namespace hzcache
 {
+    /// <summary>
+    /// The type of change that occurred to a cache item. Note it's not possible to distinguish between "add" and "update"
+    /// for performance reasons since it will require an additional lookup.
+    /// </summary>
     public enum CacheItemChangeType
     {
         AddOrUpdate, Remove, Expire
@@ -100,19 +102,19 @@ namespace hzcache
         /// <param name="key">The key of the element to remove</param>
         /// <param name="sendBackplaneNotification">Send backplane notification or not</param>
         /// <param name="skipRemoveIfEqualFunc">If function returns true, skip removing the entry</param>
-        bool Remove(string key, bool sendBackplaneNotification = true, Func<string, bool>? skipRemoveIfEqualFunc = null);
+        bool Remove(string key, bool sendBackplaneNotification = true, Func<string?, bool>? skipRemoveIfEqualFunc = null);
     }
 
     /// <summary>
     /// Simple MemoryCache alternative. Basically a concurrent dictionary with expiration and cache value change notifications.
     /// </summary>
-    public class HzMemoryCache : IEnumerable<KeyValuePair<string, object>>, IDisposable, IDetailedHzCache
+    public class HzMemoryCache : IDisposable, IDetailedHzCache
     {
         private readonly ConcurrentDictionary<string, TTLValue> dictionary = new();
         private readonly HzCacheOptions options;
         private readonly Timer cleanUpTimer;
         private readonly Timer checksumAndNotifyTimer;
-        private static readonly BlockingCollection<TTLValue> checksumAndNotifyQueue = new();
+        private readonly BlockingCollection<TTLValue> checksumAndNotifyQueue = new();
 
         /// <summary>
         /// Initializes a new empty instance of <see cref="HzMemoryCache"/>
@@ -155,9 +157,9 @@ namespace hzcache
             }
         }
 
-        private bool RemoveItem(string key, CacheItemChangeType changeType, bool sendNotification, Func<string, bool>? areEqualFunc = null)
+        private bool RemoveItem(string key, CacheItemChangeType changeType, bool sendNotification, Func<string?, bool>? skipRemoveIfEqualFunc = null)
         {
-            if (!dictionary.TryGetValue(key, out TTLValue ttlValue) || (areEqualFunc != null && areEqualFunc.Invoke(ttlValue.checksum)))
+            if (!dictionary.TryGetValue(key, out TTLValue ttlValue) || (skipRemoveIfEqualFunc != null && skipRemoveIfEqualFunc.Invoke(ttlValue.checksum)))
             {
                 return false;
             }
@@ -230,7 +232,12 @@ namespace hzcache
                 ttlValue.UpdateTimeToKill();
             }
 
-            return (T)(ttlValue.value);
+            if (ttlValue.value is T o)
+            {
+                return o;
+            }
+
+            return null;
         }
 
         public void Set<T>(string key, T? value) where T : class
@@ -266,7 +273,7 @@ namespace hzcache
         }
 
 
-        public bool Remove(string key, bool sendBackplaneNotification = true, Func<string, bool>? skipRemoveIfEqualFunc = null)
+        public bool Remove(string key, bool sendBackplaneNotification, Func<string?, bool>? skipRemoveIfEqualFunc = null)
         {
             return RemoveItem(key, CacheItemChangeType.Remove, sendBackplaneNotification, skipRemoveIfEqualFunc);
         }
@@ -287,30 +294,6 @@ namespace hzcache
 
                 _disposedValue = true;
             }
-        }
-
-        public IEnumerator<KeyValuePair<string, object>> GetEnumerator()
-        {
-            foreach (var kvp in dictionary)
-            {
-                if (!kvp.Value.IsExpired())
-                    yield return new KeyValuePair<string, object>(kvp.Key, kvp.Value.value);
-            }
-        }
-
-        public IEnumerator<KeyValuePair<string, T>> GetEnumerator<T>()
-        {
-            foreach (var kvp in dictionary)
-            {
-                if (!kvp.Value.IsExpired())
-                    yield return new KeyValuePair<string, T>(kvp.Key, (T)kvp.Value.value);
-            }
-        }
-
-
-        IEnumerator IEnumerable.GetEnumerator()
-        {
-            return GetEnumerator();
         }
     }
 }
