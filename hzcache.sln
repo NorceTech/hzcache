@@ -9,7 +9,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UnitTests", "UnitTests\Unit
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HzCache.Benchmarks", "HzCache.Benchmarks\HzCache.Benchmarks.csproj", "{DD603B8C-5216-4079-B6B2-5AA54ED1B1F3}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisBackplaneMemoryCache", "RedisBackplaneMemoryCache\RedisBackplaneMemoryCache.csproj", "{21F6B22C-EE16-47F4-A4E3-E10D4F2060D8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisBackplaneHzCache", "RedisBackplaneHzCache\RedisBackplaneHzCache.csproj", "{21F6B22C-EE16-47F4-A4E3-E10D4F2060D8}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -22,12 +22,12 @@ namespace UnitTests
         [TestMethod]
         public async Task TestRedisBackplaneInvalidation()
         {
-            RedisBackplaneMemoryHzCache c1 = new RedisBackplaneMemoryHzCache(new RedisBackplanceMemoryMemoryCacheOptions
+            RedisBackplaneHzCache c1 = new RedisBackplaneHzCache(new RedisBackplanceMemoryMemoryCacheOptions
             {
                 redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1"
             });
             await Task.Delay(200);
-            RedisBackplaneMemoryHzCache c2 = new RedisBackplaneMemoryHzCache(new RedisBackplanceMemoryMemoryCacheOptions
+            RedisBackplaneHzCache c2 = new RedisBackplaneHzCache(new RedisBackplanceMemoryMemoryCacheOptions
             {
                 redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2"
             });
@@ -37,7 +37,7 @@ namespace UnitTests
             await Task.Delay(100);
             Console.WriteLine("Adding 1 to c2");
             c2.Set("1", new Mocko(2));
-            await Task.Delay(2000);
+            await Task.Delay(100);
             
             Assert.IsNull(c1.Get<Mocko>("1"));
             Assert.IsNotNull(c2.Get<Mocko>("1"));
@@ -46,12 +46,12 @@ namespace UnitTests
         [TestMethod]
         public async Task TestDistributedInvalidationPerformance()
         {
-            RedisBackplaneMemoryHzCache c1 = new RedisBackplaneMemoryHzCache(new RedisBackplanceMemoryMemoryCacheOptions
+            RedisBackplaneHzCache c1 = new RedisBackplaneHzCache(new RedisBackplanceMemoryMemoryCacheOptions
             {
                 redisConnectionString = "localhost", applicationCachePrefix = "test", defaultTTL = TimeSpan.FromMinutes(5)
             });
 
-            RedisBackplaneMemoryHzCache c2 = new RedisBackplaneMemoryHzCache(new RedisBackplanceMemoryMemoryCacheOptions
+            RedisBackplaneHzCache c2 = new RedisBackplaneHzCache(new RedisBackplanceMemoryMemoryCacheOptions
             {
                 redisConnectionString = "localhost:6379", applicationCachePrefix = "test", defaultTTL = TimeSpan.FromMinutes(5)
             });

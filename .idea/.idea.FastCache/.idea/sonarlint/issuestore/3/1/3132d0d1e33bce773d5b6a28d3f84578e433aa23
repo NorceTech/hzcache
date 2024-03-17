@@ -1,6 +1,0 @@
-
-ycsharpsquid:S101"URename class 'TTLValue' to match pascal case naming rules, consider using 'TtlValue'.(ù‰˜8¨¼òàä1
-ncsharpsquid:S1104‘"DMake this field 'private' and encapsulate it in a 'public' property.(È…İÖüÿÿÿÿ8ª¼òàä1
-tcsharpsquid:S3881/"KFix this implementation of 'IDisposable' to conform to the dispose pattern.(£€Ï¡ûÿÿÿÿ8ª¼òàä1
-zcsharpsquid:S927ˆ"QRename parameter 'areEqualFunc' to 'areEqual' to match the interface declaration.(ğˆ‰…ıÿÿÿÿ8“‘‹áä1
-Wcsharpsquid:S1481ˆ"-Remove the unused local variable 'stopwatch'.(£›ºóıÿÿÿÿ8ª¼òàä1

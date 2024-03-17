@@ -26,11 +26,11 @@ namespace UnitTests
             var addOrUpdates = 0;
             var removals = 0;
             var expires = 0;
-            var cache = new hzcache.HzMemoryCache(
+            var cache = new HzMemoryCache(
                 new HzCacheOptions
                 {
                     cleanupJobInterval = 50,
-                    valueChangeListener = async (_, changeType, _, _, _) =>
+                    valueChangeListener = (_, changeType, _, _, _) =>
                     {
                         switch (changeType)
                         {

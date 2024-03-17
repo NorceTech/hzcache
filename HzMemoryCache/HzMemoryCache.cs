@@ -30,18 +30,12 @@ namespace hzcache
 
     public interface IHzCache
     {
+        /// <summary>
+        /// Removes cache keys based on a regex pattern.
+        /// </summary>
+        /// <param name="re"></param>
+        /// <param name="sendNotification"></param>
         void RemoveByRegex(Regex re, bool sendNotification = true);
-
-        /// <summary>
-        /// Cleans up expired items (dont' wait for the background job)
-        /// There's rarely a need to execute this method, b/c getting an item checks TTL anyway.
-        /// </summary>
-        void EvictExpired();
-
-        /// <summary>
-        /// Removes all items from the cache
-        /// </summary>
-        void Clear();
 
         /// <summary>
         /// Attempts to get a value by key
@@ -82,6 +76,27 @@ namespace hzcache
         /// Tries to remove item with the specified key, also returns the object removed in an "out" var
         /// </summary>
         /// <param name="key">The key of the element to remove</param>
+        bool Remove(string key);
+    }
+
+    public interface IDetailedHzCache : IHzCache
+    {
+        /// <summary>
+        /// Cleans up expired items (dont' wait for the background job)
+        /// There's rarely a need to execute this method, b/c getting an item checks TTL anyway.
+        /// </summary>
+        void EvictExpired();
+
+        /// <summary>
+        /// Removes all items from the cache
+        /// </summary>
+        void Clear();
+
+
+        /// <summary>
+        /// Tries to remove item with the specified key, also returns the object removed in an "out" var
+        /// </summary>
+        /// <param name="key">The key of the element to remove</param>
         /// <param name="sendBackplaneNotification">Send backplane notification or not</param>
         /// <param name="skipRemoveIfEqualFunc">If function returns true, skip removing the entry</param>
         bool Remove(string key, bool sendBackplaneNotification = true, Func<string, bool>? skipRemoveIfEqualFunc = null);
@@ -90,7 +105,7 @@ namespace hzcache
     /// <summary>
     /// Simple MemoryCache alternative. Basically a concurrent dictionary with expiration and cache value change notifications.
     /// </summary>
-    public class HzMemoryCache : IEnumerable<KeyValuePair<string, object>>, IDisposable, IHzCache
+    public class HzMemoryCache : IEnumerable<KeyValuePair<string, object>>, IDisposable, IDetailedHzCache
     {
         private readonly ConcurrentDictionary<string, TTLValue> dictionary = new();
         private readonly HzCacheOptions options;
@@ -246,6 +261,11 @@ namespace hzcache
             });
             dictionary[key] = ttlValue;
             return value;
+        }
+
+        public bool Remove(string key)
+        {
+            return Remove(key, true);
         }
 
 
