@@ -23,10 +23,10 @@ namespace UnitTests
         public async Task TestRedisBackplaneInvalidation()
         {
             var c1 = new RedisBackplaneHzCache(
-                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "trbpi", instanceId = "c1"});
+                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "trbpi", instanceId = "c1", asyncNotifications = false});
             await Task.Delay(200);
             var c2 = new RedisBackplaneHzCache(
-                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "trbpi", instanceId = "c2"});
+                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "trbpi", instanceId = "c2", asyncNotifications = false});
 
             Console.WriteLine("Adding 1 to c1");
             c1.Set("1", new Mocko(1));
