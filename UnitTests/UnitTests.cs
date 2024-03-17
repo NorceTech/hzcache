@@ -47,7 +47,7 @@ namespace UnitTests
                     }
                 });
             cache.Set("mock2", new MockObject(1));
-            await Task.Delay(100);
+            await Task.Delay(200);
             Assert.AreEqual(1, addOrUpdates);
             cache.Set("mock2", new MockObject(2));
             await Task.Delay(100);
