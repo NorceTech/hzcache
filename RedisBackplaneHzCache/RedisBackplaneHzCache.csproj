@@ -7,7 +7,7 @@
     <Authors>Anders Heintz</Authors>
     <Product>HzCache</Product>
     <RepositoryUrl>https://github.com/aheintz/hzcache</RepositoryUrl>
-    <Version>0.0.1-preview</Version>
+    <Version>0.0.1-preview-2</Version>
     <Description>Distributed cache invalidation using Redis Pub/Sub for HzCache</Description>
     <LangVersion>latestmajor</LangVersion>
     <OutputType>Library</OutputType>
