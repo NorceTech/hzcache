@@ -55,7 +55,7 @@ namespace UnitTests
             Assert.AreEqual(1, removals);
             cache.Remove("mock2");
             Assert.AreEqual(1, removals);
-            cache.GetOrSet("m", (_) => new MockObject(1), TimeSpan.FromMilliseconds(100));
+            cache.GetOrSet("m", _ => new MockObject(1), TimeSpan.FromMilliseconds(100));
             Assert.AreEqual(3, addOrUpdates);
             await Task.Delay(200);
             Assert.AreEqual(1, expires);
@@ -123,7 +123,7 @@ namespace UnitTests
         public async Task TestEviction()
         {
             var list = new List<HzMemoryCache>();
-            for (int i = 0; i < 20; i++)
+            for (var i = 0; i < 20; i++)
             {
                 var cache = new HzMemoryCache(new HzCacheOptions {cleanupJobInterval = 200});
                 cache.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
@@ -132,13 +132,13 @@ namespace UnitTests
 
             await Task.Delay(300);
 
-            for (int i = 0; i < 20; i++)
+            for (var i = 0; i < 20; i++)
             {
                 Assert.IsTrue(list[i].Count == 0); //cleanup job has run?
             }
 
             //cleanup
-            for (int i = 0; i < 20; i++)
+            for (var i = 0; i < 20; i++)
             {
                 list[i].Dispose();
             }

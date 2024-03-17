@@ -1,26 +1,26 @@
 #nullable enable
 using System;
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using Utf8Json;
 
 namespace hzcache
 {
     public class TTLValue
     {
+        private readonly Action<TTLValue>? postCompletionCallback;
+        private readonly int ttlInMs;
         public readonly object? value;
         private int tickCountWhenToKill;
-        private readonly int ttlInMs;
-        public long timestampCreated { get; }
-        public string? checksum { get; private set; }
-        private readonly Action<TTLValue>? postCompletionCallback;
 
 
         public TTLValue(object? value, TimeSpan ttl, BlockingCollection<TTLValue> checksumAndNotifyQueue, bool asyncCallback, Action<TTLValue>? postCompletionCallback)
         {
-            this.timestampCreated = DateTimeOffset.Now.ToUnixTimeMilliseconds();
+            timestampCreated = DateTimeOffset.Now.ToUnixTimeMilliseconds();
             this.value = value;
-            this.ttlInMs = (int)ttl.TotalMilliseconds;
+            ttlInMs = (int)ttl.TotalMilliseconds;
             this.postCompletionCallback = postCompletionCallback;
-            tickCountWhenToKill = Environment.TickCount + this.ttlInMs;
+            tickCountWhenToKill = Environment.TickCount + ttlInMs;
             if (postCompletionCallback != null)
             {
                 if (asyncCallback)
@@ -34,14 +34,17 @@ namespace hzcache
             }
         }
 
+        public long timestampCreated { get; }
+        public string? checksum { get; private set; }
+
         public void UpdateChecksum()
         {
             try
             {
-                using var md5 = System.Security.Cryptography.MD5.Create();
-                var json = Utf8Json.JsonSerializer.Serialize(value);
+                using var md5 = MD5.Create();
+                var json = JsonSerializer.Serialize(value);
                 checksum = BitConverter.ToString(md5.ComputeHash(json));
-                this.postCompletionCallback?.Invoke(this);
+                postCompletionCallback?.Invoke(this);
             }
             catch (Exception e)
             {

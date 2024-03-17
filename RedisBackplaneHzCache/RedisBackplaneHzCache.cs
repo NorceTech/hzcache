@@ -54,7 +54,7 @@ namespace RedisBackplaneMemoryCache
             redis.GetSubscriber().Subscribe(options.applicationCachePrefix, (_, message) =>
             {
                 var invalidationMessage = JsonSerializer.Deserialize<RedisInvalidationMessage>(message.ToString());
-                Console.WriteLine("["+instanceId+"] Received message for key "+invalidationMessage.key+ " from "+invalidationMessage.instanceId);
+                Console.WriteLine("[" + instanceId + "] Received message for key " + invalidationMessage.key + " from " + invalidationMessage.instanceId);
 
                 if (invalidationMessage.instanceId != instanceId)
                 {
@@ -66,16 +66,6 @@ namespace RedisBackplaneMemoryCache
         public void RemoveByRegex(Regex re, bool sendNotification = true)
         {
             hzCache.RemoveByRegex(re, sendNotification);
-        }
-
-        public void EvictExpired()
-        {
-            hzCache.EvictExpired();
-        }
-
-        public void Clear()
-        {
-            hzCache.Clear();
         }
 
         public T Get<T>(string key) where T : class
@@ -101,6 +91,16 @@ namespace RedisBackplaneMemoryCache
         public bool Remove(string key)
         {
             return hzCache.Remove(key);
+        }
+
+        public void EvictExpired()
+        {
+            hzCache.EvictExpired();
+        }
+
+        public void Clear()
+        {
+            hzCache.Clear();
         }
     }
 }

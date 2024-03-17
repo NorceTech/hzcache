@@ -9,8 +9,8 @@ using System.Threading.Tasks;
 namespace hzcache
 {
     /// <summary>
-    /// The type of change that occurred to a cache item. Note it's not possible to distinguish between "add" and "update"
-    /// for performance reasons since it will require an additional lookup.
+    ///     The type of change that occurred to a cache item. Note it's not possible to distinguish between "add" and "update"
+    ///     for performance reasons since it will require an additional lookup.
     /// </summary>
     public enum CacheItemChangeType
     {
@@ -34,21 +34,21 @@ namespace hzcache
     public interface IHzCache
     {
         /// <summary>
-        /// Removes cache keys based on a regex pattern.
+        ///     Removes cache keys based on a regex pattern.
         /// </summary>
         /// <param name="re"></param>
         /// <param name="sendNotification"></param>
         void RemoveByRegex(Regex re, bool sendNotification = true);
 
         /// <summary>
-        /// Attempts to get a value by key
+        ///     Attempts to get a value by key
         /// </summary>
         /// <param name="key">The key to get</param>
         /// <returns>True if value exists, otherwise false</returns>
         T? Get<T>(string key) where T : class;
 
         /// <summary>
-        /// Attempts to add a key/value item
+        ///     Attempts to add a key/value item
         /// </summary>
         /// <param name="key">The key to add</param>
         /// <param name="value">The value to add</param>
@@ -56,10 +56,10 @@ namespace hzcache
         void Set<T>(string key, T? value) where T : class;
 
         /// <summary>
-        /// Adds a key/value pair. This method could potentially be optimized, but not sure as of now.
-        /// The initial "TryGetValue" likely costs a bit, which adds time and makes it slower than
-        /// a MemoryCache.Set. However, the "TryGetValue" is required to be able to send the correct
-        /// message type to the listener.
+        ///     Adds a key/value pair. This method could potentially be optimized, but not sure as of now.
+        ///     The initial "TryGetValue" likely costs a bit, which adds time and makes it slower than
+        ///     a MemoryCache.Set. However, the "TryGetValue" is required to be able to send the correct
+        ///     message type to the listener.
         /// </summary>
         /// <param name="key">The key to add</param>
         /// <param name="value">The value to add</param>
@@ -68,7 +68,8 @@ namespace hzcache
         void Set<T>(string key, T? value, TimeSpan ttl) where T : class;
 
         /// <summary>
-        /// Adds a key/value pair by using the specified function if the key does not already exist, or returns the existing value if the key exists.
+        ///     Adds a key/value pair by using the specified function if the key does not already exist, or returns the existing
+        ///     value if the key exists.
         /// </summary>
         /// <param name="key">The key to add</param>
         /// <param name="valueFactory">The factory function used to generate the item for the key</param>
@@ -76,7 +77,7 @@ namespace hzcache
         T? GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl) where T : class;
 
         /// <summary>
-        /// Tries to remove item with the specified key, also returns the object removed in an "out" var
+        ///     Tries to remove item with the specified key, also returns the object removed in an "out" var
         /// </summary>
         /// <param name="key">The key of the element to remove</param>
         bool Remove(string key);
@@ -85,19 +86,19 @@ namespace hzcache
     public interface IDetailedHzCache : IHzCache
     {
         /// <summary>
-        /// Cleans up expired items (dont' wait for the background job)
-        /// There's rarely a need to execute this method, b/c getting an item checks TTL anyway.
+        ///     Cleans up expired items (dont' wait for the background job)
+        ///     There's rarely a need to execute this method, b/c getting an item checks TTL anyway.
         /// </summary>
         void EvictExpired();
 
         /// <summary>
-        /// Removes all items from the cache
+        ///     Removes all items from the cache
         /// </summary>
         void Clear();
 
 
         /// <summary>
-        /// Tries to remove item with the specified key, also returns the object removed in an "out" var
+        ///     Tries to remove item with the specified key, also returns the object removed in an "out" var
         /// </summary>
         /// <param name="key">The key of the element to remove</param>
         /// <param name="sendBackplaneNotification">Send backplane notification or not</param>
@@ -106,18 +107,23 @@ namespace hzcache
     }
 
     /// <summary>
-    /// Simple MemoryCache alternative. Basically a concurrent dictionary with expiration and cache value change notifications.
+    ///     Simple MemoryCache alternative. Basically a concurrent dictionary with expiration and cache value change
+    ///     notifications.
     /// </summary>
     public class HzMemoryCache : IDisposable, IDetailedHzCache
     {
+        private static readonly SemaphoreSlim globalStaticLock = new(1);
+        private readonly BlockingCollection<TTLValue> checksumAndNotifyQueue = new();
+        private readonly Timer checksumAndNotifyTimer;
+        private readonly Timer cleanUpTimer;
         private readonly ConcurrentDictionary<string, TTLValue> dictionary = new();
         private readonly HzCacheOptions options;
-        private readonly Timer cleanUpTimer;
-        private readonly Timer checksumAndNotifyTimer;
-        private readonly BlockingCollection<TTLValue> checksumAndNotifyQueue = new();
+
+        //IDispisable members
+        private bool _disposedValue;
 
         /// <summary>
-        /// Initializes a new empty instance of <see cref="HzMemoryCache"/>
+        ///     Initializes a new empty instance of <see cref="HzMemoryCache" />
         /// </summary>
         /// <param name="options">Options for the cache</param>
         public HzMemoryCache(HzCacheOptions? options = null)
@@ -127,25 +133,7 @@ namespace hzcache
             checksumAndNotifyTimer = new Timer(UpdateChecksumAndNotify, null, 20, 20);
         }
 
-        private static readonly SemaphoreSlim globalStaticLock = new(1);
-
-        private void UpdateChecksumAndNotify(object state)
-        {
-            while (checksumAndNotifyQueue.TryTake(out var ttlValue))
-            {
-                ttlValue.UpdateChecksum();
-            }
-        }
-
-        private async Task ProcessExpiredEviction()
-        {
-            await globalStaticLock.WaitAsync().ConfigureAwait(false);
-            try
-            {
-                EvictExpired();
-            }
-            finally { globalStaticLock.Release(); }
-        }
+        public int Count => dictionary.Count;
 
         public void RemoveByRegex(Regex re, bool sendNotification = true)
         {
@@ -155,32 +143,6 @@ namespace hzcache
             {
                 NotifyItemChange(re.ToString(), CacheItemChangeType.Remove, null, 0, true);
             }
-        }
-
-        private bool RemoveItem(string key, CacheItemChangeType changeType, bool sendNotification, Func<string?, bool>? skipRemoveIfEqualFunc = null)
-        {
-            if (!dictionary.TryGetValue(key, out TTLValue ttlValue) || (skipRemoveIfEqualFunc != null && skipRemoveIfEqualFunc.Invoke(ttlValue.checksum)))
-            {
-                return false;
-            }
-
-            var result = dictionary.TryRemove(key, out ttlValue);
-            if (result)
-            {
-                if (sendNotification)
-                {
-                    NotifyItemChange(key, changeType, ttlValue.checksum, ttlValue.timestampCreated);
-                }
-
-                return !ttlValue.IsExpired();
-            }
-
-            return false;
-        }
-
-        private void NotifyItemChange(string key, CacheItemChangeType changeType, string? checksum, long timestamp, bool isRegexp = false)
-        {
-            options.valueChangeListener.Invoke(key, changeType, checksum, timestamp, isRegexp);
         }
 
         public void EvictExpired()
@@ -200,8 +162,6 @@ namespace hzcache
                 }
             }
         }
-
-        public int Count => dictionary.Count;
 
         public void Clear()
         {
@@ -256,7 +216,9 @@ namespace hzcache
         {
             var value = Get<T>(key);
             if (value != null)
+            {
                 return value;
+            }
 
             value = valueFactory(key);
             var ttlValue = new TTLValue(value, ttl, checksumAndNotifyQueue, options.asyncNotifications, tv =>
@@ -278,9 +240,54 @@ namespace hzcache
             return RemoveItem(key, CacheItemChangeType.Remove, sendBackplaneNotification, skipRemoveIfEqualFunc);
         }
 
-        //IDispisable members
-        private bool _disposedValue;
-        public void Dispose() => Dispose(true);
+        public void Dispose()
+        {
+            Dispose(true);
+        }
+
+        private void UpdateChecksumAndNotify(object state)
+        {
+            while (checksumAndNotifyQueue.TryTake(out var ttlValue))
+            {
+                ttlValue.UpdateChecksum();
+            }
+        }
+
+        private async Task ProcessExpiredEviction()
+        {
+            await globalStaticLock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                EvictExpired();
+            }
+            finally { globalStaticLock.Release(); }
+        }
+
+        private bool RemoveItem(string key, CacheItemChangeType changeType, bool sendNotification, Func<string?, bool>? skipRemoveIfEqualFunc = null)
+        {
+            if (!dictionary.TryGetValue(key, out TTLValue ttlValue) || (skipRemoveIfEqualFunc != null && skipRemoveIfEqualFunc.Invoke(ttlValue.checksum)))
+            {
+                return false;
+            }
+
+            var result = dictionary.TryRemove(key, out ttlValue);
+            if (result)
+            {
+                if (sendNotification)
+                {
+                    NotifyItemChange(key, changeType, ttlValue.checksum, ttlValue.timestampCreated);
+                }
+
+                return !ttlValue.IsExpired();
+            }
+
+            return false;
+        }
+
+        private void NotifyItemChange(string key, CacheItemChangeType changeType, string? checksum, long timestamp, bool isRegexp = false)
+        {
+            options.valueChangeListener.Invoke(key, changeType, checksum, timestamp, isRegexp);
+        }
 
         protected virtual void Dispose(bool disposing)
         {
