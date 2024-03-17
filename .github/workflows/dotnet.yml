@@ -5,7 +5,7 @@ name: .NET
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "release" ]
   pull_request:
     branches: [ "main" ]
 
@@ -28,13 +28,7 @@ jobs:
       run: dotnet build --no-restore
     - name: Test
       run: dotnet test --no-build --verbosity normal --filter "TestCategory!=Integration"
-    - name: Install Versionize
-      run: dotnet tool install --global Versionize
-    - name: Versioning
-      id: versionize
-      run: versionize --changelog-all --skip-dirty
-      continue-on-error: true
-    - name: No release required
-      if: steps.versionize.outcome != 'success'
-      run: echo "Skipping Release. No release required."
+    - name: Publish
+      if: startsWith(github.ref, 'refs/heads/release')
+      run: nuget push **\*.nupkg -Source 'https://api.nuget.org/v3/index.json' -ApiKey ${{secrets.NUGET_API_KEY}}
 

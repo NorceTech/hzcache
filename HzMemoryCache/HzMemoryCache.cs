@@ -14,7 +14,18 @@ namespace hzcache
     /// </summary>
     public enum CacheItemChangeType
     {
-        AddOrUpdate, Remove, Expire
+        /// <summary>
+        ///     A cache item was added or updated
+        /// </summary>
+        AddOrUpdate, 
+        /// <summary>
+        ///     A cache item was removed
+        /// </summary>
+        Remove, 
+        /// <summary>
+        ///     A cache item expired
+        /// </summary>
+        Expire
     }
 
     /// <summary>
@@ -25,7 +36,15 @@ namespace hzcache
     /// </summary>
     public enum EvictionPolicy
     {
-        LRU, FIFO
+        /// <summary>
+        ///     LRU means that the item expiry TTL is set on write and extended on read.
+        /// </summary>
+        LRU, 
+        /// <summary>
+        ///     FIFO means that the item expiry TTL is set on write never updated, thus being evicted
+        ///     when TTL expires independently on how often it's read.
+        /// </summary>
+        FIFO
     }
 
     /// <summary>
@@ -163,8 +182,16 @@ namespace hzcache
             checksumAndNotifyTimer = new Timer(UpdateChecksumAndNotify, null, 20, 20);
         }
 
+        /// <summary>
+        ///     The number of items in the memory cache
+        /// </summary>
         public int Count => dictionary.Count;
 
+        /// <summary>
+        ///     @see <see cref="IHzCache" />
+        /// </summary>
+        /// <param name="re"></param>
+        /// <param name="sendNotification"></param>
         public void RemoveByRegex(Regex re, bool sendNotification = true)
         {
             var victims = dictionary.Keys.Where(k => re.IsMatch(k)).ToList();
@@ -175,6 +202,9 @@ namespace hzcache
             }
         }
 
+        /// <summary>
+        ///     @see <see cref="IDetailedHzCache" />
+        /// </summary>
         public void EvictExpired()
         {
             if (Monitor.TryEnter(cleanUpTimer)) //use the timer-object for our lock, it's local, private and instance-type, so its ok
@@ -193,6 +223,9 @@ namespace hzcache
             }
         }
 
+        /// <summary>
+        ///     @see <see cref="IDetailedHzCache" />
+        /// </summary>
         public void Clear()
         {
             var kvps = dictionary.ToArray();
@@ -203,6 +236,9 @@ namespace hzcache
             }
         }
 
+        /// <summary>
+        ///     @see <see cref="IHzCache" />
+        /// </summary>
         public T? Get<T>(string key) where T : class
         {
             var defaultValue = default(T);
@@ -230,11 +266,17 @@ namespace hzcache
             return null;
         }
 
+        /// <summary>
+        ///     @see <see cref="IHzCache" />
+        /// </summary>
         public void Set<T>(string key, T? value) where T : class
         {
             Set(key, value, options.defaultTTL);
         }
 
+        /// <summary>
+        ///     @see <see cref="IHzCache" />
+        /// </summary>
         public void Set<T>(string key, T? value, TimeSpan ttl) where T : class
         {
             Action<TTLValue>? valueChangeListener = options.valueChangeListener != null
@@ -244,6 +286,9 @@ namespace hzcache
             dictionary[key] = v;
         }
 
+        /// <summary>
+        ///     @see <see cref="IHzCache" />
+        /// </summary>
         public T? GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl) where T : class
         {
             var value = Get<T>(key);
@@ -261,17 +306,26 @@ namespace hzcache
             return value;
         }
 
+        /// <summary>
+        ///     @see <see cref="IHzCache" />
+        /// </summary>
         public bool Remove(string key)
         {
             return Remove(key, true);
         }
 
 
+        /// <summary>
+        ///     @see <see cref="IDetailedHzCache" />
+        /// </summary>
         public bool Remove(string key, bool sendBackplaneNotification, Func<string?, bool>? checksumEqualsFunc = null)
         {
             return RemoveItem(key, CacheItemChangeType.Remove, sendBackplaneNotification, checksumEqualsFunc);
         }
 
+        /// <summary>
+        ///     Dispose.
+        /// </summary>
         public void Dispose()
         {
             Dispose(true);
