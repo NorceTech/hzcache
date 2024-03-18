@@ -72,22 +72,22 @@ namespace RedisBackplaneMemoryCache
             hzCache.RemoveByRegex(re, sendNotification);
         }
 
-        public T Get<T>(string key) where T : class
+        public T Get<T>(string key)
         {
             return hzCache.Get<T>(key);
         }
 
-        public void Set<T>(string key, T value) where T : class
+        public void Set<T>(string key, T value)
         {
             hzCache.Set(key, value);
         }
 
-        public void Set<T>(string key, T value, TimeSpan ttl) where T : class
+        public void Set<T>(string key, T value, TimeSpan ttl)
         {
             hzCache.Set(key, value, ttl);
         }
 
-        public T GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl) where T : class
+        public T GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl)
         {
             return hzCache.GetOrSet(key, valueFactory, ttl);
         }
