@@ -11,6 +11,7 @@ namespace hzcache
         private readonly Action<TTLValue>? postCompletionCallback;
         private readonly int ttlInMs;
         public readonly object? value;
+        public long objectSize { get; set; }
         private int tickCountWhenToKill;
 
 
@@ -43,6 +44,7 @@ namespace hzcache
             {
                 using var md5 = MD5.Create();
                 var json = JsonSerializer.Serialize(value);
+                objectSize = json.Length;
                 checksum = BitConverter.ToString(md5.ComputeHash(json));
                 postCompletionCallback?.Invoke(this);
             }

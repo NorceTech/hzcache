@@ -145,5 +145,13 @@ namespace hzcache
         /// <param name="sendBackplaneNotification">Send backplane notification or not</param>
         /// <param name="checksumEqualsFunc">If function returns true, skip removing the entry</param>
         bool Remove(string key, bool sendBackplaneNotification = true, Func<string?, bool>? checksumEqualsFunc = null);
+        CacheStatistics GetStatistics();
     }
+    
+    public class CacheStatistics
+    {
+        public long Counts { get; set; }
+        public long SizeInBytes { get; set; }
+    }
+
 }
