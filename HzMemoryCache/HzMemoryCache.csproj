@@ -10,7 +10,7 @@
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/aheintz/hzcache</RepositoryUrl>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>0.0.1-preview-3</Version>
+    <Version>0.0.1-preview-4</Version>
     <PackageTags>cache;caching;MemoryCache</PackageTags>
     <Description>Fast in-memory cache for .NET with change notifications (for distributed cache invalidation)</Description>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
