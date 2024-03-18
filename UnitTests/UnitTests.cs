@@ -156,6 +156,18 @@ namespace UnitTests
             Assert.IsNotNull(result); //not evicted
             Assert.IsTrue(result.num == 42);
         }
+        [TestMethod]
+        public async Task TestPrimitives()
+        {
+            var cache = new HzMemoryCache();
+            cache.GetOrSet("42", v => 42, TimeSpan.FromMilliseconds(500));
+
+            await Task.Delay(20);
+
+            var result = cache.Get<int>("42");
+            Assert.IsNotNull(result); //not evicted
+            Assert.IsTrue(result == 42);
+        }
 
         [TestMethod]
         public async Task TestWithDefaultJobInterval()

@@ -17,7 +17,7 @@ namespace hzcache
     ///     Simple MemoryCache alternative. Basically a concurrent dictionary with expiration and cache value change
     ///     notifications.
     /// </summary>
-    public class HzMemoryCache : IDisposable, IDetailedHzCache
+    public sealed class HzMemoryCache : IDisposable, IDetailedHzCache
     {
         private static readonly SemaphoreSlim globalStaticLock = new(1);
         private readonly BlockingCollection<TTLValue> checksumAndNotifyQueue = new();
@@ -150,7 +150,7 @@ namespace hzcache
         public T? GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl)
         {
             var value = Get<T>(key);
-            if (value != null)
+            if (!IsNullOrDefault(value))
             {
                 return value;
             }
@@ -179,6 +179,11 @@ namespace hzcache
         public bool Remove(string key, bool sendBackplaneNotification, Func<string?, bool>? checksumEqualsFunc = null)
         {
             return RemoveItem(key, CacheItemChangeType.Remove, sendBackplaneNotification, checksumEqualsFunc);
+        }
+
+        public CacheStatistics GetStatistics()
+        {
+            return new CacheStatistics {Counts = this.Count, SizeInBytes = this.dictionary.Values.Sum(v => v.objectSize)};
         }
 
         /// <summary>
@@ -239,7 +244,7 @@ namespace hzcache
             options.valueChangeListener?.Invoke(key, changeType, checksum, timestamp, isRegexp);
         }
 
-        protected virtual void Dispose(bool disposing)
+        private void Dispose(bool disposing)
         {
             if (!_disposedValue)
             {
@@ -251,6 +256,27 @@ namespace hzcache
 
                 _disposedValue = true;
             }
+        }
+        
+        public static bool IsNullOrDefault<T>(T argument)
+        {
+            // deal with normal scenarios
+            if (argument == null) return true;
+            if (object.Equals(argument, default(T))) return true;
+
+            // deal with non-null nullables
+            Type methodType = typeof(T);
+            if (Nullable.GetUnderlyingType(methodType) != null) return false;
+
+            // deal with boxed value types
+            Type argumentType = argument.GetType();
+            if (argumentType.IsValueType && argumentType != methodType) 
+            {
+                object obj = Activator.CreateInstance(argument.GetType());
+                return obj.Equals(argument);
+            }
+
+            return false;
         }
     }
 }
