@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Text.RegularExpressions;
+using System.Text;
 using hzcache;
 using StackExchange.Redis;
 using Utf8Json;
@@ -11,27 +11,69 @@ namespace RedisBackplane
         public string redisConnectionString { get; set; }
         public string applicationCachePrefix { get; set; }
         public string instanceId { get; set; }
+        public bool useRedisAs2ndLevelCache => redisConnectionString != null;
     }
 
-    public class RedisBackplaneHzCache : IHzCache
+    public class RedisBackplaneHzCache : IDetailedHzCache
     {
-        private readonly IDetailedHzCache hzCache;
+        private readonly HzMemoryCache hzCache;
         private readonly string instanceId = Guid.NewGuid().ToString();
+        private readonly RedisBackplanceMemoryMemoryCacheOptions options;
+        private readonly ConnectionMultiplexer redis;
 
         public RedisBackplaneHzCache(RedisBackplanceMemoryMemoryCacheOptions options)
         {
-            var redis = ConnectionMultiplexer.Connect(options.redisConnectionString);
-            hzCache = new hzcache.HzMemoryCache(new HzCacheOptions
+            this.options = options;
+            if (this.options.useRedisAs2ndLevelCache)
             {
+                this.options.notificationType = NotificationType.Async;
+            }
+
+            if (!string.IsNullOrWhiteSpace(options.instanceId))
+            {
+                instanceId = options.instanceId;
+            }
+
+            redis = ConnectionMultiplexer.Connect(options.redisConnectionString);
+            hzCache = new HzMemoryCache(new HzCacheOptions
+            {
+                instanceId = instanceId,
                 evictionPolicy = options.evictionPolicy,
+                notificationType = options.notificationType,
                 cleanupJobInterval = options.cleanupJobInterval,
-                valueChangeListener = (key, changeType, checksum, timestamp, isRegexp) =>
+                valueChangeListener = (key, changeType, ttlValue, objectData, isPattern) =>
                 {
-                    options.valueChangeListener?.Invoke(key, changeType, checksum, timestamp, isRegexp);
+                    options.valueChangeListener?.Invoke(key, changeType, ttlValue, objectData, isPattern);
                     var redisChannel = new RedisChannel(options.applicationCachePrefix, RedisChannel.PatternMode.Auto);
-                    var messageObject = new RedisInvalidationMessage(instanceId, key, checksum, timestamp, isRegexp);
+                    var messageObject = new RedisInvalidationMessage(instanceId, key, ttlValue?.checksum, ttlValue?.timestampCreated, isPattern);
                     redis.GetSubscriber().PublishAsync(redisChannel, new RedisValue(JsonSerializer.ToJsonString(messageObject)));
-                    Console.WriteLine("NotifyValueChange for " + key + " on instance " + instanceId);
+                    if (changeType == CacheItemChangeType.AddOrUpdate)
+                    {
+                        if (options.useRedisAs2ndLevelCache && objectData != null)
+                        {
+                            redis.GetDatabase().StringSet(key, objectData, TimeSpan.FromMilliseconds(ttlValue.absoluteExpireTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()));
+                        }
+                    }
+                    else
+                    {
+                        if (isPattern.HasValue && isPattern.Value)
+                        {
+                            RemoveByPattern(key, false);
+                            if (options.useRedisAs2ndLevelCache)
+                            {
+                                redis.GetDatabase().Execute("EVAL", $"for i, name in ipairs(redis.call(\"KEYS\", \"{key}\")) do redis.call(\"UNLINK\", name); end", "0");
+                            }
+                        }
+                        else
+                        {
+                            Remove(key, false);
+                        }
+
+                        if (options.useRedisAs2ndLevelCache)
+                        {
+                            redis.GetDatabase().KeyDelete(key);
+                        }
+                    }
                 },
                 defaultTTL = options.defaultTTL
             });
@@ -46,26 +88,28 @@ namespace RedisBackplane
                 throw new ArgumentNullException("Application cache prefix is required");
             }
 
-            if (!string.IsNullOrWhiteSpace(options.instanceId))
-            {
-                instanceId = options.instanceId;
-            }
-
+            // Messages from other instances through redis. 
             redis.GetSubscriber().Subscribe(options.applicationCachePrefix, (channel, message) =>
             {
                 var invalidationMessage = JsonSerializer.Deserialize<RedisInvalidationMessage>(message.ToString());
-                Console.WriteLine("["+instanceId+"] Received message for key "+invalidationMessage.key+ " from "+invalidationMessage.instanceId);
 
                 if (invalidationMessage.instanceId != instanceId)
                 {
-                    hzCache.Remove(invalidationMessage.key, false, chksum => chksum == invalidationMessage.checksum);
+                    if (invalidationMessage.isPattern.HasValue && invalidationMessage.isPattern.Value)
+                    {
+                        hzCache.RemoveByPattern(invalidationMessage.key, false);
+                    }
+                    else
+                    {
+                        hzCache.Remove(invalidationMessage.key, false, chksum => chksum == invalidationMessage.checksum);
+                    }
                 }
             });
         }
 
-        public void RemoveByRegex(Regex re, bool sendNotification = true)
+        public void RemoveByPattern(string pattern, bool sendNotification = true)
         {
-            hzCache.RemoveByRegex(re, sendNotification);
+            hzCache.RemoveByPattern(pattern, sendNotification);
         }
 
         public void EvictExpired()
@@ -78,9 +122,26 @@ namespace RedisBackplane
             hzCache.Clear();
         }
 
+        public bool Remove(string key, bool sendBackplaneNotification = true, Func<string, bool> skipRemoveIfEqualFunc = null)
+        {
+            return hzCache.Remove(key, sendBackplaneNotification, skipRemoveIfEqualFunc);
+        }
+
         public T Get<T>(string key) where T : class
         {
-            return hzCache.Get<T>(key);
+            var value = hzCache.Get<T>(key);
+            if (value == null && options.useRedisAs2ndLevelCache)
+            {
+                var redisValue = redis.GetDatabase().StringGet(key);
+                if (!redisValue.IsNull)
+                {
+                    var ttlValue = TTLValue.FromRedisValue<T>(Encoding.ASCII.GetBytes(redisValue.ToString()));
+                    hzCache.SetRaw<T>(key, ttlValue);
+                    return (T)ttlValue.value;
+                }
+            }
+
+            return value;
         }
 
         public void Set<T>(string key, T value) where T : class

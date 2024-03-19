@@ -1,35 +1,26 @@
-﻿using BenchmarkDotNet.Attributes;
-using BenchmarkDotNet.Running;
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
 using System.Runtime.Caching;
+using BenchmarkDotNet.Attributes;
+using BenchmarkDotNet.Running;
 using hzcache;
+using HzCache.Benchmarks;
 
-BenchmarkRunner.Run<BenchMark>();
+BenchmarkRunner.Run<WithRedisInvalidation>();
 
-[ShortRunJob, MemoryDiagnoser]
+[ShortRunJob]
+[MemoryDiagnoser]
 public class BenchMark
 {
-    private static HzMemoryCache _hzCache = new hzcache.HzMemoryCache(new HzCacheOptions {cleanupJobInterval = 600_000, asyncNotifications = true});
-    private static ConcurrentDictionary<string, int> _dict = new();
+    private static readonly HzMemoryCache _hzCache = new(new HzCacheOptions {cleanupJobInterval = 600_000, notificationType = NotificationType.None});
+    private static readonly ConcurrentDictionary<string, int> _dict = new();
 
-    private static DateTime _dtPlus10Mins = DateTime.Now.AddMinutes(10);
-    
+    private static readonly DateTime _dtPlus10Mins = DateTime.Now.AddMinutes(10);
 
-    public class Mocko
-    {
-        public int num { get; }
-        public Mocko() { }
-
-        public Mocko(int num)
-        {
-            this.num = num;
-        }
-    }
     [GlobalSetup]
     public void GlobalSetup()
     {
         //add 10000 values
-        for (int i = 0; i < 1000; i++)
+        for (var i = 0; i < 1000; i++)
         {
             var v = new Mocko(i);
             _dict.TryAdd("test" + i, i);
@@ -71,7 +62,7 @@ public class BenchMark
         _hzCache.GetOrSet("test673", _ => new Mocko(125), TimeSpan.FromSeconds(1));
         _hzCache.GetOrSet("test987", _ => new Mocko(126), TimeSpan.FromSeconds(1));
     }
-    
+
     [Benchmark]
     public void MemoryCacheAddOrGetExisting()
     {
@@ -111,5 +102,18 @@ public class BenchMark
     {
         MemoryCache.Default.Add("1111", new Mocko(42), _dtPlus10Mins);
         MemoryCache.Default.Remove("1111");
+    }
+
+
+    public class Mocko
+    {
+        public Mocko() { }
+
+        public Mocko(int num)
+        {
+            this.num = num;
+        }
+
+        public int num { get; }
     }
 }
