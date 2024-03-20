@@ -17,11 +17,18 @@ by using the ability to remove items using a pattern (with `*` - asterisk as wil
 
 Works for my case, might work for you if you have the same problem as I had.
 
+If you want a *distributed* cache, use [Hazelcast](https://hazelcast.com/). 
+
 ## Very fast
 
 It's designed to be fast, really fast. In it's simplest configuration it's faster than IMemoryCache. However,
 adding value change notifications and Redis pub/sub makes it slower than IMemoryCache. But it's still quite fast
 when asynchronous notifications are enabled.
+
+## Ensure using the correct eviction policy
+`LRU` means that the cache expiry is extended at every read. This is the default policy.
+`FIFO` means that the cache expiry is extended at every write. This is the policy to use if you want to ensure that
+data is re-read every now and then and don't have any other mechanisms to evict cache items.
 
 ## Work in progress
 

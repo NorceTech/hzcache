@@ -68,8 +68,6 @@ namespace hzcache
 
         public void UpdateChecksum()
         {
-            try
-            {
                 using var md5 = MD5.Create();
                 var valueJson = JsonSerializer.Serialize(value);
                 checksum = BitConverter.ToString(md5.ComputeHash(valueJson));
@@ -85,11 +83,6 @@ namespace hzcache
                 };
                 var json = JsonSerializer.Serialize(redisValue);
                 postCompletionCallback?.Invoke(this, json);
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("error " + e);
-            }
         }
 
         public void UpdateTimeToKill()

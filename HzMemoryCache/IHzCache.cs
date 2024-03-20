@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using Microsoft.Extensions.Logging;
 
 namespace hzcache
 {
@@ -72,14 +73,15 @@ namespace hzcache
         public Action<string, CacheItemChangeType, TTLValue, byte[]?, bool?> valueChangeListener { get; set; } = (_, _, _, _, _) => { };
 
         /// <summary>
-        ///     Whether or not to send notifications asynchronously. Defaults to true.
+        ///     The type of notification to use for the cache. Defaults to None.
         /// </summary>
-        public NotificationType notificationType { get; set; }
+        public NotificationType notificationType { get; set; } = NotificationType.None;
 
         /// <summary>
         ///     Eviction policy to use for the cache. Defaults to LRU.
         /// </summary>
         public EvictionPolicy evictionPolicy { get; set; } = EvictionPolicy.LRU;
+        public ILogger? logger { get; set; }
     }
 
     public interface IHzCache

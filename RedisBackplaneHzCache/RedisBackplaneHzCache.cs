@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Text;
 using hzcache;
+using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using Utf8Json;
 
@@ -64,7 +65,7 @@ namespace RedisBackplaneMemoryCache
                             }
                             catch (Exception e)
                             {
-                                Console.WriteLine(e);
+                                this.options.logger?.LogCritical(e, "Failed to set value in redis");
                             }
                         }
                     }

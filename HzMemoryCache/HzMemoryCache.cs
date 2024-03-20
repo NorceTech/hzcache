@@ -10,6 +10,7 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
+using Microsoft.Extensions.Logging;
 
 namespace hzcache
 {
@@ -227,7 +228,14 @@ namespace hzcache
             var options = new DataflowLinkOptions {PropagateCompletion = true};
             var actionBlock = new ActionBlock<IList<TTLValue>>(ttlValues =>
             {
-                ttlValues.AsParallel().ForAll(ttlValue => ttlValue.UpdateChecksum());
+                try
+                {
+                    ttlValues.AsParallel().ForAll(ttlValue => ttlValue.UpdateChecksum());
+                }
+                catch (Exception e)
+                {
+                    this.options.logger?.LogCritical(e, "Unable to calculate checksum and serialize TTLValue");
+                }
             });
 
             checksumAndNotifyQueue.LinkTo(actionBlock, options);
