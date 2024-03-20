@@ -52,13 +52,14 @@ namespace RedisBackplaneMemoryCache
                     var messageObject = new RedisInvalidationMessage(this.options.applicationCachePrefix, instanceId, key, ttlValue?.checksum, ttlValue?.timestampCreated,
                         isPattern);
                     redis.GetSubscriber().PublishAsync(redisChannel, new RedisValue(JsonSerializer.ToJsonString(messageObject)));
+                    var redisKey = GetRedisKey(key);
                     if (changeType == CacheItemChangeType.AddOrUpdate)
                     {
                         if (options.useRedisAs2ndLevelCache && objectData != null)
                         {
                             try
                             {
-                                redis.GetDatabase().StringSet(key, objectData,
+                                redis.GetDatabase().StringSet(redisKey, objectData,
                                     TimeSpan.FromMilliseconds(ttlValue.absoluteExpireTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()));
                             }
                             catch (Exception e)
@@ -74,7 +75,7 @@ namespace RedisBackplaneMemoryCache
                             RemoveByPattern(key, false);
                             if (options.useRedisAs2ndLevelCache)
                             {
-                                redis.GetDatabase().Execute("EVAL", $"for i, name in ipairs(redis.call(\"KEYS\", \"{key}\")) do redis.call(\"UNLINK\", name); end", "0");
+                                redis.GetDatabase().Execute("EVAL", $"for i, name in ipairs(redis.call(\"KEYS\", \"{redisKey}\")) do redis.call(\"UNLINK\", name); end", "0");
                             }
                         }
                         else
@@ -84,7 +85,7 @@ namespace RedisBackplaneMemoryCache
 
                         if (options.useRedisAs2ndLevelCache)
                         {
-                            redis.GetDatabase().KeyDelete(key);
+                            redis.GetDatabase().KeyDelete(redisKey);
                         }
                     }
                 },
@@ -131,6 +132,11 @@ namespace RedisBackplaneMemoryCache
             });
         }
 
+        private string GetRedisKey(string cacheKey)
+        {
+            return $"{options.applicationCachePrefix}:{cacheKey}";
+        }
+
         public void RemoveByPattern(string pattern, bool sendNotification = true)
         {
             hzCache.RemoveByPattern(pattern, sendNotification);
@@ -161,7 +167,7 @@ namespace RedisBackplaneMemoryCache
             var value = hzCache.Get<T>(key);
             if (value == null && options.useRedisAs2ndLevelCache)
             {
-                var redisValue = redis.GetDatabase().StringGet(key);
+                var redisValue = redis.GetDatabase().StringGet(GetRedisKey(key));
                 if (!redisValue.IsNull)
                 {
                     var ttlValue = TTLValue.FromRedisValue<T>(Encoding.ASCII.GetBytes(redisValue.ToString()));

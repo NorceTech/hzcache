@@ -46,7 +46,7 @@ namespace hzcache
         public long timestampCreated { get; set; }
         public long absoluteExpireTime { get; set; }
         public string checksum { get; set; }
-
+        
         public static TTLValue FromRedisValue<T>(byte[] compressedData)
         {
             // var target = new byte[LZ4Codec.MaximumOutputSize(compressedData.Length)];
