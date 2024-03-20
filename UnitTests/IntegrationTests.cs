@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using hzcache;
+using RedisBackplaneMemoryCache;
 using StackExchange.Redis;
 
 namespace UnitTests
@@ -24,14 +25,14 @@ namespace UnitTests
         public async Task TestRedisBackplaneInvalidation()
         {
             var c1 = new RedisBackplaneHzCache(
-                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1"});
+                new RedisBackplaneMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1"});
             await Task.Delay(200);
             var c2 = new RedisBackplaneHzCache(
-                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2"});
+                new RedisBackplaneMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2"});
 
             Console.WriteLine("Adding 1 to c1");
             c1.Set("1", new Mocko(1));
-            await Task.Delay(100);
+            await Task.Delay(200);
             Console.WriteLine("Adding 1 to c2");
             c2.Set("1", new Mocko(2));
             await Task.Delay(200);
@@ -47,10 +48,10 @@ namespace UnitTests
         {
             var redis = ConnectionMultiplexer.Connect("localhost");
             var c1 = new RedisBackplaneHzCache(
-                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1"});
+                new RedisBackplaneMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1"});
             await Task.Delay(200);
             var c2 = new RedisBackplaneHzCache(
-                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2"});
+                new RedisBackplaneMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2"});
 
             Console.WriteLine("Adding 1 to c1");
             c1.Set("1", new Mocko(1));
@@ -74,10 +75,16 @@ namespace UnitTests
         {
             var redis = ConnectionMultiplexer.Connect("localhost");
             var c1 = new RedisBackplaneHzCache(
-                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1", useRedisAs2ndLevelCache = true});
+                new RedisBackplaneMemoryMemoryCacheOptions
+                {
+                    redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1", useRedisAs2ndLevelCache = true
+                });
             await Task.Delay(200);
             var c2 = new RedisBackplaneHzCache(
-                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2", useRedisAs2ndLevelCache = true});
+                new RedisBackplaneMemoryMemoryCacheOptions
+                {
+                    redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2", useRedisAs2ndLevelCache = true
+                });
 
             Console.WriteLine("Adding 1 to c1");
             c1.Set("1", new Mocko(10));
@@ -93,10 +100,10 @@ namespace UnitTests
         {
             var redis = ConnectionMultiplexer.Connect("localhost");
             var c1 = new RedisBackplaneHzCache(
-                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1"});
+                new RedisBackplaneMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1"});
             await Task.Delay(200);
             var c2 = new RedisBackplaneHzCache(
-                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2"});
+                new RedisBackplaneMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2"});
 
             Console.WriteLine("Adding 1 to c1");
             c1.Set("1", new Mocko(1));
@@ -118,10 +125,10 @@ namespace UnitTests
         {
             var redis = ConnectionMultiplexer.Connect("localhost");
             var c1 = new RedisBackplaneHzCache(
-                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1"});
+                new RedisBackplaneMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1"});
             await Task.Delay(200);
             var c2 = new RedisBackplaneHzCache(
-                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2"});
+                new RedisBackplaneMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2"});
 
             c1.Set("11", new Mocko(11));
             c1.Set("12", new Mocko(12));
@@ -132,7 +139,7 @@ namespace UnitTests
             Console.WriteLine("Deleting by pattern 2* on c2");
             await Task.Delay(200);
             c2.RemoveByPattern("2*");
-            await Task.Delay(200);
+            await Task.Delay(300);
             Assert.IsNotNull(c1.Get<Mocko>("11"));
             Assert.IsNotNull(c1.Get<Mocko>("12"));
             Assert.IsNotNull(c1.Get<Mocko>("13"));
@@ -154,20 +161,22 @@ namespace UnitTests
         {
             var iterations = 100000.0d;
             var redis = ConnectionMultiplexer.Connect("localhost");
-            var c1 = new RedisBackplaneHzCache(new RedisBackplanceMemoryMemoryCacheOptions
+            var c1 = new RedisBackplaneHzCache(new RedisBackplaneMemoryMemoryCacheOptions
             {
                 redisConnectionString = "localhost",
                 applicationCachePrefix = "test",
                 defaultTTL = TimeSpan.FromSeconds(Math.Max(iterations / 10000, 20)),
-                notificationType = NotificationType.Async
+                notificationType = NotificationType.Async,
+                useRedisAs2ndLevelCache = true
             });
 
-            var c2 = new RedisBackplaneHzCache(new RedisBackplanceMemoryMemoryCacheOptions
+            var c2 = new RedisBackplaneHzCache(new RedisBackplaneMemoryMemoryCacheOptions
             {
                 redisConnectionString = "localhost:6379",
                 applicationCachePrefix = "test",
                 defaultTTL = TimeSpan.FromSeconds(Math.Max(iterations / 10000, 20)),
-                notificationType = NotificationType.Async
+                notificationType = NotificationType.Async,
+                useRedisAs2ndLevelCache = true
             });
 
             Console.WriteLine("Adding 1 to c1");
@@ -182,18 +191,19 @@ namespace UnitTests
             var start = Stopwatch.StartNew();
             for (var i = 0; i < iterations; i++)
             {
-                c1.Set("test"+i, new Mocko(i));
+                c1.Set("test" + i, new Mocko(i));
             }
 
             var end = start.ElapsedTicks;
             start.Restart();
             var size = 0;
-            var max = Math.Max((int)iterations / 800, 20);
+            var max = Math.Max((int)iterations / 500, 20);
             while ((size = (int)redis.GetDatabase().Execute("DBSIZE")) < iterations + 1 && max-- > 0)
             {
-                await Task.Delay(50);
+                await Task.Delay(100);
             }
 
+            Assert.IsTrue(max > 0);
 
             var setTime = (double)end / Stopwatch.Frequency * 1000;
             var postProcessingTime = (double)start.ElapsedTicks / Stopwatch.Frequency * 1000;

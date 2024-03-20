@@ -1,6 +1,5 @@
 #nullable enable
 using System;
-using System.Text.RegularExpressions;
 
 namespace hzcache
 {
@@ -9,16 +8,24 @@ namespace hzcache
         /// <summary>
         ///     A cache item was added or updated
         /// </summary>
-        AddOrUpdate, 
+        AddOrUpdate,
+
         /// <summary>
         ///     A cache item was removed
         /// </summary>
-        Remove, 
+        Remove,
+
         /// <summary>
         ///     A cache item expired
         /// </summary>
         Expire
     }
+
+    public enum NotificationType
+    {
+        Async, Sync, None
+    }
+
 
     /// <summary>
     ///     The eviction policy to use for the cache.
@@ -31,7 +38,8 @@ namespace hzcache
         /// <summary>
         ///     LRU means that the item expiry TTL is set on write and extended on read.
         /// </summary>
-        LRU, 
+        LRU,
+
         /// <summary>
         ///     FIFO means that the item expiry TTL is set on write never updated, thus being evicted
         ///     when TTL expires independently on how often it's read.
@@ -44,6 +52,8 @@ namespace hzcache
     /// </summary>
     public class HzCacheOptions
     {
+        public string instanceId { get; set; } = Guid.NewGuid().ToString();
+
         /// <summary>
         ///     How frequently the cache should clean up expired items. Defaults to 1 second.
         /// </summary>
@@ -59,12 +69,12 @@ namespace hzcache
         ///     the third is the checksum of the value, the fourth is the insert timestamp (Unix Time in ms) of the item,
         ///     and the fifth is a boolean indicating if the key is a regex pattern.
         /// </summary>
-        public Action<string, CacheItemChangeType, string?, long, bool>? valueChangeListener { get; set; }
+        public Action<string, CacheItemChangeType, TTLValue, byte[]?, bool?> valueChangeListener { get; set; } = (_, _, _, _, _) => { };
 
         /// <summary>
         ///     Whether or not to send notifications asynchronously. Defaults to true.
         /// </summary>
-        public bool asyncNotifications { get; set; } = true;
+        public NotificationType notificationType { get; set; }
 
         /// <summary>
         ///     Eviction policy to use for the cache. Defaults to LRU.
@@ -79,7 +89,7 @@ namespace hzcache
         /// </summary>
         /// <param name="re"></param>
         /// <param name="sendNotification"></param>
-        void RemoveByRegex(Regex re, bool sendNotification = true);
+        void RemoveByPattern(string pattern, bool sendNotification = true);
 
         /// <summary>
         ///     Attempts to get a value by key
@@ -145,13 +155,13 @@ namespace hzcache
         /// <param name="sendBackplaneNotification">Send backplane notification or not</param>
         /// <param name="checksumEqualsFunc">If function returns true, skip removing the entry</param>
         bool Remove(string key, bool sendBackplaneNotification = true, Func<string?, bool>? checksumEqualsFunc = null);
+
         CacheStatistics GetStatistics();
     }
-    
+
     public class CacheStatistics
     {
         public long Counts { get; set; }
         public long SizeInBytes { get; set; }
     }
-
 }

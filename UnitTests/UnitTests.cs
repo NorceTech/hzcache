@@ -155,6 +155,7 @@ namespace UnitTests
             Assert.IsNotNull(result); //not evicted
             Assert.IsTrue(result.num == 42);
         }
+
         [TestMethod]
         public async Task TestPrimitives()
         {
