@@ -13,7 +13,7 @@ from [FusionCache](https://github.com/ZiggyCreatures/FusionCache) which is a muc
 and generally a better choice unless you have dependency between cache items. However it have the sad misfortune of
 being based on `IDistributedCache` (and I don't blame FusionCache, I blame the inventor of `IDistributedCache`)
 which makes it impossible to have dependency between cache items. And in this specific case that is managed
-by using the ability to remove items using a regex pattern. Simply as that.
+by using the ability to remove items using a pattern (with `*` - asterisk as wildcard). Simply as that.
 
 Works for my case, might work for you if you have the same problem as I had.
 
@@ -28,3 +28,5 @@ when asynchronous notifications are enabled.
 The `IHzCache` isn't completely thought through, but it covers many needs. Not your need? PR please.
 
 Bug free? No, not at all. Please report bugs if you find them.
+
+The `IHzCache` isn't completely thought through, but it covers many needs. Not your? PR please.

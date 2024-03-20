@@ -1,4 +1,3 @@
-using System.Text.RegularExpressions;
 using hzcache;
 
 namespace UnitTests
@@ -30,7 +29,7 @@ namespace UnitTests
                 new HzCacheOptions
                 {
                     cleanupJobInterval = 50,
-                    asyncNotifications = false,
+                    notificationType = NotificationType.Sync,
                     valueChangeListener = (_, changeType, _, _, _) =>
                     {
                         switch (changeType)
@@ -54,7 +53,7 @@ namespace UnitTests
             cache.Remove("mock2");
             Assert.AreEqual(1, removals);
             cache.Remove("mock2");
-            Assert.AreEqual(1, removals);
+            Assert.AreEqual(2, removals);
             cache.GetOrSet("m", _ => new MockObject(1), TimeSpan.FromMilliseconds(100));
             Assert.AreEqual(3, addOrUpdates);
             await Task.Delay(200);
@@ -62,14 +61,14 @@ namespace UnitTests
         }
 
         [TestMethod]
-        public async Task TestRemoveByRegexp()
+        public async Task TestRemoveByPattern()
         {
             var removals = 0;
             var cache = new HzMemoryCache(
                 new HzCacheOptions
                 {
                     cleanupJobInterval = 200,
-                    valueChangeListener = (key, changeType, _, _, _) =>
+                    valueChangeListener = async (key, changeType, _, _, _) =>
                     {
                         switch (changeType)
                         {
@@ -90,11 +89,11 @@ namespace UnitTests
             cache.Set("tomma", new MockObject(42));
             cache.Set("flina", new MockObject(42));
 
-            cache.RemoveByRegex(new Regex("tom.*"));
+            cache.RemoveByPattern("tom*");
             Assert.IsNull(cache.Get<MockObject>("tom"));
             Assert.IsNull(cache.Get<MockObject>("tomma"));
 
-            cache.RemoveByRegex(new Regex("^.*lle.*"));
+            cache.RemoveByPattern("*lle*");
             Assert.IsNull(cache.Get<MockObject>("pelle"));
             Assert.IsNull(cache.Get<MockObject>("kalle"));
             Assert.IsNull(cache.Get<MockObject>("olle"));
@@ -156,6 +155,7 @@ namespace UnitTests
             Assert.IsNotNull(result); //not evicted
             Assert.IsTrue(result.num == 42);
         }
+
         [TestMethod]
         public async Task TestPrimitives()
         {

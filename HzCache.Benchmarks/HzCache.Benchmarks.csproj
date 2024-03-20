@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HzMemoryCache\HzMemoryCache.csproj"/>
+    <ProjectReference Include="..\RedisBackplaneHzCache\RedisBackplaneHzCache.csproj"/>
   </ItemGroup>
 
 </Project>

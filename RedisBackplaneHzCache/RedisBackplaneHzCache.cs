@@ -1,5 +1,5 @@
 ﻿using System;
-using System.Text.RegularExpressions;
+using System.Text;
 using hzcache;
 using StackExchange.Redis;
 using Utf8Json;
@@ -10,29 +10,83 @@ namespace RedisBackplaneMemoryCache
     {
         public string redisConnectionString { get; set; }
         public string applicationCachePrefix { get; set; }
+
         public string instanceId { get; set; }
+
+        //TODO: this needs to be reverted. Sometimes you just want to use the backplane without the 2nd level cache.
+        public bool useRedisAs2ndLevelCache { get; set; } = false;
     }
 
-    public class RedisBackplaneHzCache : IHzCache
+    public class RedisBackplaneHzCache : IDetailedHzCache
     {
-        private readonly IDetailedHzCache hzCache;
+        private readonly HzMemoryCache hzCache;
         private readonly string instanceId = Guid.NewGuid().ToString();
+        private readonly RedisBackplaneMemoryMemoryCacheOptions options;
+        private readonly ConnectionMultiplexer redis;
 
         public RedisBackplaneHzCache(RedisBackplaneMemoryMemoryCacheOptions options)
         {
-            instanceId = options.instanceId ?? instanceId;
-            var redis = ConnectionMultiplexer.Connect(options.redisConnectionString);
+            this.options = options;
+            if (this.options.redisConnectionString != null)
+            {
+                this.options.notificationType = NotificationType.Async;
+            }
+
+            if (!string.IsNullOrWhiteSpace(options.instanceId))
+            {
+                instanceId = options.instanceId;
+            }
+
+            redis = ConnectionMultiplexer.Connect(options.redisConnectionString);
             hzCache = new HzMemoryCache(new HzCacheOptions
             {
+                instanceId = this.options.instanceId,
                 evictionPolicy = options.evictionPolicy,
+                notificationType = options.notificationType,
                 cleanupJobInterval = options.cleanupJobInterval,
-                asyncNotifications = options.asyncNotifications,
-                valueChangeListener = (key, changeType, checksum, timestamp, isRegexp) =>
+                valueChangeListener = (key, changeType, ttlValue, objectData, isPattern) =>
                 {
-                    options.valueChangeListener?.Invoke(key, changeType, checksum, timestamp, isRegexp);
+                    options.valueChangeListener?.Invoke(key, changeType, ttlValue, objectData, isPattern);
                     var redisChannel = new RedisChannel(options.applicationCachePrefix, RedisChannel.PatternMode.Auto);
-                    var messageObject = new RedisInvalidationMessage(options.applicationCachePrefix, instanceId, key, checksum, timestamp, isRegexp);
+                    // Console.WriteLine($"Publishing message {changeType} {this.options.applicationCachePrefix} {instanceId} {key} {ttlValue?.checksum} {ttlValue?.timestampCreated} {isPattern}");
+                    var messageObject = new RedisInvalidationMessage(this.options.applicationCachePrefix, instanceId, key, ttlValue?.checksum, ttlValue?.timestampCreated,
+                        isPattern);
                     redis.GetSubscriber().PublishAsync(redisChannel, new RedisValue(JsonSerializer.ToJsonString(messageObject)));
+                    if (changeType == CacheItemChangeType.AddOrUpdate)
+                    {
+                        if (options.useRedisAs2ndLevelCache && objectData != null)
+                        {
+                            try
+                            {
+                                redis.GetDatabase().StringSet(key, objectData,
+                                    TimeSpan.FromMilliseconds(ttlValue.absoluteExpireTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()));
+                            }
+                            catch (Exception e)
+                            {
+                                Console.WriteLine(e);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        if (isPattern.HasValue && isPattern.Value)
+                        {
+                            RemoveByPattern(key, false);
+                            if (options.useRedisAs2ndLevelCache)
+                            {
+                                redis.GetDatabase().Execute("EVAL", $"for i, name in ipairs(redis.call(\"KEYS\", \"{key}\")) do redis.call(\"UNLINK\", name); end", "0");
+                            }
+                        }
+                        else
+                        {
+                            Remove(key, false);
+                        }
+
+                        if (options.useRedisAs2ndLevelCache)
+                        {
+                            redis.GetDatabase().KeyDelete(key);
+                        }
+                    }
                 },
                 defaultTTL = options.defaultTTL
             });
@@ -52,6 +106,7 @@ namespace RedisBackplaneMemoryCache
                 instanceId = options.instanceId;
             }
 
+            // Messages from other instances through redis.
             redis.GetSubscriber().Subscribe(options.applicationCachePrefix, (_, message) =>
             {
                 var invalidationMessage = JsonSerializer.Deserialize<RedisInvalidationMessage>(message.ToString());
@@ -62,19 +117,60 @@ namespace RedisBackplaneMemoryCache
 
                 if (invalidationMessage.instanceId != instanceId)
                 {
-                    hzCache.Remove(invalidationMessage.key, false, chksum => chksum == invalidationMessage.checksum);
+                    // Console.WriteLine(
+                    // $"[{instanceId}] Received invalidation for key {invalidationMessage.key} from {invalidationMessage.instanceId}, isPattern: {invalidationMessage.isPattern}");
+                    if (invalidationMessage.isPattern.HasValue && invalidationMessage.isPattern.Value)
+                    {
+                        hzCache.RemoveByPattern(invalidationMessage.key, false);
+                    }
+                    else
+                    {
+                        hzCache.Remove(invalidationMessage.key, false, chksum => chksum == invalidationMessage.checksum);
+                    }
                 }
             });
         }
 
-        public void RemoveByRegex(Regex re, bool sendNotification = true)
+        public void RemoveByPattern(string pattern, bool sendNotification = true)
         {
-            hzCache.RemoveByRegex(re, sendNotification);
+            hzCache.RemoveByPattern(pattern, sendNotification);
+        }
+
+        public void EvictExpired()
+        {
+            hzCache.EvictExpired();
+        }
+
+        public void Clear()
+        {
+            hzCache.Clear();
+        }
+
+        public bool Remove(string key, bool sendBackplaneNotification = true, Func<string, bool> skipRemoveIfEqualFunc = null)
+        {
+            return hzCache.Remove(key, sendBackplaneNotification, skipRemoveIfEqualFunc);
+        }
+
+        public CacheStatistics GetStatistics()
+        {
+            throw new NotImplementedException();
         }
 
         public T Get<T>(string key)
         {
-            return hzCache.Get<T>(key);
+            var value = hzCache.Get<T>(key);
+            if (value == null && options.useRedisAs2ndLevelCache)
+            {
+                var redisValue = redis.GetDatabase().StringGet(key);
+                if (!redisValue.IsNull)
+                {
+                    var ttlValue = TTLValue.FromRedisValue<T>(Encoding.ASCII.GetBytes(redisValue.ToString()));
+                    hzCache.SetRaw(key, ttlValue);
+                    return (T)ttlValue.value;
+                }
+            }
+
+            return value;
         }
 
         public void Set<T>(string key, T value)
@@ -95,16 +191,6 @@ namespace RedisBackplaneMemoryCache
         public bool Remove(string key)
         {
             return hzCache.Remove(key);
-        }
-
-        public void EvictExpired()
-        {
-            hzCache.EvictExpired();
-        }
-
-        public void Clear()
-        {
-            hzCache.Clear();
         }
     }
 }

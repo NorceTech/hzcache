@@ -3,14 +3,15 @@ using System.Runtime.Caching;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
 using hzcache;
+using HzCache.Benchmarks;
 
-BenchmarkRunner.Run<BenchMark>();
+BenchmarkRunner.Run<WithRedisInvalidation>();
 
 [ShortRunJob]
 [MemoryDiagnoser]
 public class BenchMark
 {
-    private static readonly HzMemoryCache _hzCache = new(new HzCacheOptions {cleanupJobInterval = 600_000, asyncNotifications = true});
+    private static readonly HzMemoryCache _hzCache = new(new HzCacheOptions {cleanupJobInterval = 600_000, notificationType = NotificationType.None});
     private static readonly ConcurrentDictionary<string, int> _dict = new();
 
     private static readonly DateTime _dtPlus10Mins = DateTime.Now.AddMinutes(10);
