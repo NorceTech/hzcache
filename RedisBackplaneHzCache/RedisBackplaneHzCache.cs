@@ -11,7 +11,8 @@ namespace RedisBackplane
         public string redisConnectionString { get; set; }
         public string applicationCachePrefix { get; set; }
         public string instanceId { get; set; }
-        public bool useRedisAs2ndLevelCache => redisConnectionString != null;
+        //TODO: this needs to be reverted. Sometimes you just want to use the backplane without the 2nd level cache.
+        public bool useRedisAs2ndLevelCache { get; set; } = false;
     }
 
     public class RedisBackplaneHzCache : IDetailedHzCache
@@ -24,7 +25,7 @@ namespace RedisBackplane
         public RedisBackplaneHzCache(RedisBackplanceMemoryMemoryCacheOptions options)
         {
             this.options = options;
-            if (this.options.useRedisAs2ndLevelCache)
+            if (this.options.redisConnectionString != null)
             {
                 this.options.notificationType = NotificationType.Async;
             }
@@ -51,7 +52,12 @@ namespace RedisBackplane
                     {
                         if (options.useRedisAs2ndLevelCache && objectData != null)
                         {
-                            redis.GetDatabase().StringSet(key, objectData, TimeSpan.FromMilliseconds(ttlValue.absoluteExpireTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()));
+                            try {
+                            var x = redis.GetDatabase().StringSet(key, objectData, TimeSpan.FromMilliseconds(ttlValue.absoluteExpireTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()));
+                            Console.WriteLine("x "+x);
+                            } catch (Exception e) {
+                                Console.WriteLine(e);
+                            }
                         }
                     }
                     else

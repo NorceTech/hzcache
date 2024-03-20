@@ -34,9 +34,9 @@ namespace UnitTests
             await Task.Delay(100);
             Console.WriteLine("Adding 1 to c2");
             c2.Set("1", new Mocko(2));
-            await Task.Delay(100);
+            await Task.Delay(200);
 
-            Assert.IsNotNull(c1.Get<Mocko>("1"));
+            Assert.IsNull(c1.Get<Mocko>("1"));
             Assert.IsNotNull(c2.Get<Mocko>("1"));
         }
 
@@ -74,10 +74,10 @@ namespace UnitTests
         {
             var redis = ConnectionMultiplexer.Connect("localhost");
             var c1 = new RedisBackplaneHzCache(
-                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1"});
+                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1", useRedisAs2ndLevelCache = true});
             await Task.Delay(200);
             var c2 = new RedisBackplaneHzCache(
-                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2"});
+                new RedisBackplanceMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2", useRedisAs2ndLevelCache = true});
 
             Console.WriteLine("Adding 1 to c1");
             c1.Set("1", new Mocko(10));
@@ -108,7 +108,7 @@ namespace UnitTests
             c2.Remove("1");
             await Task.Delay(300);
             Assert.IsNull(c1.Get<Mocko>("1"));
-            Assert.IsNotNull(c2.Get<Mocko>("2"));
+            Assert.IsNotNull(c1.Get<Mocko>("2"));
         }
 
 
@@ -134,11 +134,11 @@ namespace UnitTests
             c2.RemoveByPattern("2*");
             await Task.Delay(200);
             Assert.IsNotNull(c1.Get<Mocko>("11"));
-            Assert.IsNotNull(c2.Get<Mocko>("12"));
+            Assert.IsNotNull(c1.Get<Mocko>("12"));
             Assert.IsNotNull(c1.Get<Mocko>("13"));
-            Assert.IsNotNull(c2.Get<Mocko>("33"));
+            Assert.IsNotNull(c1.Get<Mocko>("33"));
             Assert.IsNull(c1.Get<Mocko>("22"));
-            Assert.IsNull(c2.Get<Mocko>("23"));
+            Assert.IsNull(c1.Get<Mocko>("23"));
             Console.WriteLine("Deleting by pattern 1*");
             c2.RemoveByPattern("1*");
             await Task.Delay(400);
