@@ -182,7 +182,7 @@ namespace UnitTests
             var start = Stopwatch.StartNew();
             for (var i = 0; i < iterations; i++)
             {
-                c1.Set("test" + i, new Mocko(i));
+                c1.Set("test"+i, new Mocko(i));
             }
 
             var end = start.ElapsedTicks;

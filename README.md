@@ -17,6 +17,16 @@ by using the ability to remove items using a pattern (with `*` - asterisk as wil
 
 Works for my case, might work for you if you have the same problem as I had.
 
+## Very fast
+
+It's designed to be fast, really fast. In it's simplest configuration it's faster than IMemoryCache. However,
+adding value change notifications and Redis pub/sub makes it slower than IMemoryCache. But it's still quite fast
+when asynchronous notifications are enabled.
+
 ## Work in progress
+
+The `IHzCache` isn't completely thought through, but it covers many needs. Not your need? PR please.
+
+Bug free? No, not at all. Please report bugs if you find them.
 
 The `IHzCache` isn't completely thought through, but it covers many needs. Not your? PR please.

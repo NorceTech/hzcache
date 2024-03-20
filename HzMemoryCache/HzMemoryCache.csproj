@@ -1,19 +1,20 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <PackageId>aheintz.hzcache</PackageId>
-    <Title>hzcache</Title>
+    <PackageId>HzCache</PackageId>
+    <Title>HzCache</Title>
     <Authors>Anders Heintz</Authors>
-    <Product>hzcache</Product>
+    <Product>HzCache</Product>
     <PackageProjectUrl>https://github.com/aheintz/hzcache</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <RepositoryUrl>https://github.com/aheintz/hzcache</RepositoryUrl>
     <PackageLicenseFile>LICENSE</PackageLicenseFile>
-    <Version>1.0.10</Version>
+    <Version>0.0.1-preview-4</Version>
     <PackageTags>cache;caching;MemoryCache</PackageTags>
-    <Description>Fast in-memory cache for .NET with distributed cache invalidation</Description>
+    <Description>Fast in-memory cache for .NET with change notifications (for distributed cache invalidation)</Description>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <LangVersion>latestmajor</LangVersion>
     <RootNamespace>hzcache</RootNamespace>
   </PropertyGroup>

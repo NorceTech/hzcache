@@ -93,13 +93,13 @@ namespace hzcache
     public interface IDetailedHzCache : IHzCache
     {
         /// <summary>
-        ///     Cleans up expired items (dont' wait for the background job)
-        ///     There's rarely a need to execute this method, b/c getting an item checks TTL anyway.
+        /// Cleans up expired items (dont' wait for the background job)
+        /// There's rarely a need to execute this method, b/c getting an item checks TTL anyway.
         /// </summary>
         void EvictExpired();
 
         /// <summary>
-        ///     Removes all items from the cache
+        /// Removes all items from the cache
         /// </summary>
         void Clear();
 
@@ -140,7 +140,25 @@ namespace hzcache
             StartUpdateChecksumAndNotify();
         }
 
-        public int Count => dictionary.Count;
+        private static readonly SemaphoreSlim globalStaticLock = new(1);
+
+        private void UpdateChecksumAndNotify(object state)
+        {
+            while (checksumAndNotifyQueue.TryTake(out var ttlValue))
+            {
+                ttlValue.UpdateChecksum();
+            }
+        }
+
+        private async Task ProcessExpiredEviction()
+        {
+            await globalStaticLock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                EvictExpired();
+            }
+            finally { globalStaticLock.Release(); }
+        }
 
         public void RemoveByPattern(string pattern, bool sendNotification = true)
         {
@@ -162,6 +180,32 @@ namespace hzcache
             }
         }
 
+        private bool RemoveItem(string key, CacheItemChangeType changeType, bool sendNotification, Func<string, bool>? areEqualFunc = null)
+        {
+            if (!dictionary.TryGetValue(key, out TTLValue ttlValue) || (areEqualFunc != null && areEqualFunc.Invoke(ttlValue.checksum)))
+            {
+                return false;
+            }
+
+            var result = dictionary.TryRemove(key, out ttlValue);
+            if (result)
+            {
+                if (sendNotification)
+                {
+                    NotifyItemChange(key, changeType, ttlValue.checksum, ttlValue.timestampCreated);
+                }
+
+                return !ttlValue.IsExpired();
+            }
+
+            return false;
+        }
+
+        private void NotifyItemChange(string key, CacheItemChangeType changeType, string? checksum, long timestamp, bool isRegexp = false)
+        {
+            options.valueChangeListener.Invoke(key, changeType, checksum, timestamp, isRegexp);
+        }
+
         public void EvictExpired()
         {
             if (Monitor.TryEnter(cleanUpTimer)) //use the timer-object for our lock, it's local, private and instance-type, so its ok
@@ -180,6 +224,8 @@ namespace hzcache
             }
         }
 
+        public int Count => dictionary.Count;
+
         public void Clear()
         {
             var kvps = dictionary.ToArray();
@@ -190,7 +236,10 @@ namespace hzcache
             }
         }
 
-        public T? Get<T>(string key) where T : class
+        /// <summary>
+        ///     @see <see cref="IHzCache" />
+        /// </summary>
+        public T? Get<T>(string key)
         {
             var defaultValue = default(T);
 
@@ -209,30 +258,55 @@ namespace hzcache
                 ttlValue.UpdateTimeToKill();
             }
 
+            if (ttlValue.value is T o)
+            {
+                return o;
+            }
+
+            return default;
             return (T)ttlValue.value;
         }
 
-        public void Set<T>(string key, T? value) where T : class
+        /// <summary>
+        ///     @see <see cref="IHzCache" />
+        /// </summary>
+        public void Set<T>(string key, T? value)
         {
             Set(key, value, options.defaultTTL);
         }
 
-        public void Set<T>(string key, T? value, TimeSpan ttl) where T : class
+        /// <summary>
+        ///     @see <see cref="IHzCache" />
+        /// </summary>
+        public void Set<T>(string key, T? value, TimeSpan ttl)
         {
+            Action<TTLValue>? valueChangeListener = options.valueChangeListener != null
+                ? tv => NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv.checksum, tv.timestampCreated)
+                : null;
+            var v = new TTLValue(value, ttl, checksumAndNotifyQueue, options.asyncNotifications, valueChangeListener);
             var v = new TTLValue(key, value, ttl, checksumAndNotifyQueue, options.notificationType,
                 (tv, objectData) => NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv, objectData));
             dictionary[key] = v;
         }
 
-        public T? GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl) where T : class
+        /// <summary>
+        ///     @see <see cref="IHzCache" />
+        /// </summary>
+        public T? GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl)
         {
             var value = Get<T>(key);
+            if (!IsNullOrDefault(value))
+            {
             if (value != null)
             {
                 return value;
             }
 
             value = valueFactory(key);
+            Action<TTLValue>? valueChangeListener = options.valueChangeListener != null
+                ? tv => NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv.checksum, tv.timestampCreated)
+                : null;
+            var ttlValue = new TTLValue(value, ttl, checksumAndNotifyQueue, options.asyncNotifications, valueChangeListener);
             var ttlValue = new TTLValue(key, value, ttl, checksumAndNotifyQueue, options.notificationType, (tv, objectData) =>
             {
                 NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv, objectData);
@@ -241,15 +315,26 @@ namespace hzcache
             return value;
         }
 
+        /// <summary>
+        ///     @see <see cref="IHzCache" />
+        /// </summary>
         public bool Remove(string key)
         {
             return Remove(key, options.notificationType != NotificationType.None);
         }
 
 
-        public bool Remove(string key, bool sendBackplaneNotification = true, Func<string, bool>? skipRemoveIfEqualFunc = null)
+        /// <summary>
+        ///     @see <see cref="IDetailedHzCache" />
+        /// </summary>
+        public bool Remove(string key, bool sendBackplaneNotification, Func<string?, bool>? checksumEqualsFunc = null)
         {
-            return RemoveItem(key, CacheItemChangeType.Remove, sendBackplaneNotification, skipRemoveIfEqualFunc);
+            return RemoveItem(key, CacheItemChangeType.Remove, sendBackplaneNotification, checksumEqualsFunc);
+        }
+
+        public CacheStatistics GetStatistics()
+        {
+            return new CacheStatistics {Counts = this.Count, SizeInBytes = this.dictionary.Values.Sum(v => v.objectSize)};
         }
 
         public void Dispose()
@@ -340,7 +425,65 @@ namespace hzcache
             dictionary[key] = value;
         }
 
-        protected virtual void Dispose(bool disposing)
+        /// <summary>
+        ///     Dispose.
+        /// </summary>
+        public void Dispose()
+        {
+            Dispose(true);
+        }
+
+        private void UpdateChecksumAndNotify(object state)
+        {
+            while (checksumAndNotifyQueue.TryTake(out var ttlValue))
+            {
+                ttlValue.UpdateChecksum();
+            }
+        }
+
+        private async Task ProcessExpiredEviction()
+        {
+            await globalStaticLock.WaitAsync().ConfigureAwait(false);
+            try
+            {
+                EvictExpired();
+            }
+            finally { globalStaticLock.Release(); }
+        }
+
+        private bool RemoveItem(string key, CacheItemChangeType changeType, bool sendNotification, Func<string?, bool>? checksumEqualsFunc = null)
+        {
+            var valueExists = dictionary.TryGetValue(key, out TTLValue ttlValue);
+            if (!valueExists)
+            {
+                return false;
+            }
+
+            if (checksumEqualsFunc?.Invoke(ttlValue.checksum) ?? false)
+            {
+                return false;
+            }
+
+            var result = dictionary.TryRemove(key, out ttlValue);
+            if (result)
+            {
+                if (sendNotification)
+                {
+                    NotifyItemChange(key, changeType, ttlValue.checksum, ttlValue.timestampCreated);
+                }
+
+                return !ttlValue.IsExpired();
+            }
+
+            return false;
+        }
+
+        private void NotifyItemChange(string key, CacheItemChangeType changeType, string? checksum, long timestamp, bool isRegexp = false)
+        {
+            options.valueChangeListener?.Invoke(key, changeType, checksum, timestamp, isRegexp);
+        }
+
+        private void Dispose(bool disposing)
         {
             if (!_disposedValue)
             {
@@ -363,5 +506,27 @@ namespace hzcache
                 }
             }
         }
+        
+        public static bool IsNullOrDefault<T>(T argument)
+        {
+            // deal with normal scenarios
+            if (argument == null) return true;
+            if (object.Equals(argument, default(T))) return true;
+
+            // deal with non-null nullables
+            Type methodType = typeof(T);
+            if (Nullable.GetUnderlyingType(methodType) != null) return false;
+
+            // deal with boxed value types
+            Type argumentType = argument.GetType();
+            if (argumentType.IsValueType && argumentType != methodType) 
+            {
+                object obj = Activator.CreateInstance(argument.GetType());
+                return obj.Equals(argument);
+            }
+
+            return false;
+        }
+
     }
 }

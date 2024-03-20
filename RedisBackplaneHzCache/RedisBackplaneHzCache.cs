@@ -4,9 +4,9 @@ using hzcache;
 using StackExchange.Redis;
 using Utf8Json;
 
-namespace RedisBackplane
+namespace RedisBackplaneMemoryCache
 {
-    public class RedisBackplanceMemoryMemoryCacheOptions : HzCacheOptions
+    public class RedisBackplaneMemoryMemoryCacheOptions : HzCacheOptions
     {
         public string redisConnectionString { get; set; }
         public string applicationCachePrefix { get; set; }
@@ -22,7 +22,7 @@ namespace RedisBackplane
         private readonly RedisBackplanceMemoryMemoryCacheOptions options;
         private readonly ConnectionMultiplexer redis;
 
-        public RedisBackplaneHzCache(RedisBackplanceMemoryMemoryCacheOptions options)
+        public RedisBackplaneHzCache(RedisBackplaneMemoryMemoryCacheOptions options)
         {
             this.options = options;
             if (this.options.redisConnectionString != null)
@@ -86,18 +86,28 @@ namespace RedisBackplane
 
             if (string.IsNullOrWhiteSpace(options.redisConnectionString))
             {
-                throw new ArgumentNullException("Redis connection string is required");
+                throw new ArgumentException("Redis connection string is required");
             }
 
             if (string.IsNullOrWhiteSpace(options.applicationCachePrefix))
             {
-                throw new ArgumentNullException("Application cache prefix is required");
+                throw new ArgumentException("Application cache prefix is required");
             }
 
-            // Messages from other instances through redis. 
-            redis.GetSubscriber().Subscribe(options.applicationCachePrefix, (channel, message) =>
+            if (!string.IsNullOrWhiteSpace(options.instanceId))
+            {
+                instanceId = options.instanceId;
+            }
+
+            // Messages from other instances through redis.
+            redis.GetSubscriber().Subscribe(options.applicationCachePrefix, (_, message) =>
             {
                 var invalidationMessage = JsonSerializer.Deserialize<RedisInvalidationMessage>(message.ToString());
+                if (invalidationMessage.applicationCachePrefix != options.applicationCachePrefix)
+                {
+                    return;
+                }
+                Console.WriteLine("["+instanceId+"] Received message for key "+invalidationMessage.key+ " from "+invalidationMessage.instanceId);
 
                 if (invalidationMessage.instanceId != instanceId)
                 {
@@ -133,7 +143,7 @@ namespace RedisBackplane
             return hzCache.Remove(key, sendBackplaneNotification, skipRemoveIfEqualFunc);
         }
 
-        public T Get<T>(string key) where T : class
+        public T Get<T>(string key)
         {
             var value = hzCache.Get<T>(key);
             if (value == null && options.useRedisAs2ndLevelCache)
@@ -150,17 +160,17 @@ namespace RedisBackplane
             return value;
         }
 
-        public void Set<T>(string key, T value) where T : class
+        public void Set<T>(string key, T value)
         {
             hzCache.Set(key, value);
         }
 
-        public void Set<T>(string key, T value, TimeSpan ttl) where T : class
+        public void Set<T>(string key, T value, TimeSpan ttl)
         {
             hzCache.Set(key, value, ttl);
         }
 
-        public T GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl) where T : class
+        public T GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl)
         {
             return hzCache.GetOrSet(key, valueFactory, ttl);
         }
