@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using hzcache;
 
 namespace UnitTests
@@ -221,6 +222,59 @@ namespace UnitTests
             cache.Clear();
 
             Assert.IsNull(cache.Get<MockObject>("key"));
+        }
+
+        [TestMethod]
+        public async Task TestStampedeProtection()
+        {
+            var cache = new HzMemoryCache();
+            var stopwatch = Stopwatch.StartNew();
+            Task.Run(() =>
+            {
+                cache.GetOrSet("key", _ =>
+                {
+                    Task.Delay(2000).GetAwaiter().GetResult();
+                    return new MockObject(1024);
+                }, TimeSpan.FromSeconds(100));
+            });
+            await Task.Delay(50);
+            var timeToInsert = stopwatch.ElapsedTicks / Stopwatch.Frequency * 1000;
+            stopwatch.Restart();
+            var x = cache.GetOrSet("key", _ => new MockObject(1024), TimeSpan.FromSeconds(100));
+            var timeToWait = stopwatch.ElapsedTicks / Stopwatch.Frequency * 1000;
+            stopwatch.Restart();
+            cache.GetOrSet("key", _ => new MockObject(1024), TimeSpan.FromSeconds(100));
+
+            var timeToGetFromMemoryCache = stopwatch.ElapsedTicks / Stopwatch.Frequency * 1000;
+
+            Console.WriteLine($"Insert: {timeToInsert}, Wait: {timeToWait}, Get: {timeToGetFromMemoryCache}");
+
+            Assert.IsTrue(timeToInsert < 50);
+            Assert.IsTrue(timeToWait is > 950 and < 1050);
+            Assert.IsTrue(timeToGetFromMemoryCache < 50);
+        }
+
+        [TestMethod]
+        public async Task TestStampedeProtectionTimeout()
+        {
+            var cache = new HzMemoryCache();
+            var stopwatch = Stopwatch.StartNew();
+            Task.Run(() =>
+            {
+                cache.GetOrSet("key", _ =>
+                {
+                    Task.Delay(2000).GetAwaiter().GetResult();
+                    return new MockObject(1024);
+                }, TimeSpan.FromSeconds(100), 1000);
+            });
+            await Task.Delay(50);
+            var timeToInsert = stopwatch.ElapsedTicks / Stopwatch.Frequency * 1000;
+            stopwatch.Restart();
+            var x = cache.GetOrSet("key", _ => new MockObject(2048), TimeSpan.FromSeconds(100));
+            var timeToWait = stopwatch.ElapsedTicks / Stopwatch.Frequency * 1000;
+            stopwatch.Restart();
+            var value = cache.GetOrSet("key", _ => new MockObject(1024), TimeSpan.FromSeconds(100));
+            Assert.AreEqual(value?.num, 2048);
         }
 
         [TestMethod]

@@ -53,6 +53,7 @@ namespace hzcache
     /// </summary>
     public class HzCacheOptions
     {
+        public string applicationCachePrefix { get; set; }
         public string instanceId { get; set; } = Guid.NewGuid().ToString();
 
         /// <summary>
@@ -81,6 +82,7 @@ namespace hzcache
         ///     Eviction policy to use for the cache. Defaults to LRU.
         /// </summary>
         public EvictionPolicy evictionPolicy { get; set; } = EvictionPolicy.LRU;
+
         public ILogger? logger { get; set; }
     }
 
@@ -127,7 +129,8 @@ namespace hzcache
         /// <param name="key">The key to add</param>
         /// <param name="valueFactory">The factory function used to generate the item for the key</param>
         /// <param name="ttl">TTL of the item</param>
-        T? GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl);
+        /// <param name="maxMsToWaitForFactory">The maximum amount of time (in ms) to wait for backend. Default is 10.000ms</param>
+        T? GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000);
 
         /// <summary>
         ///     Tries to remove item with the specified key, also returns the object removed in an "out" var

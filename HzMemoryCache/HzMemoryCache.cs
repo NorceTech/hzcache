@@ -20,11 +20,11 @@ namespace hzcache
     /// </summary>
     public class HzMemoryCache : IEnumerable<KeyValuePair<string, object>>, IDisposable, IDetailedHzCache
     {
-        private static readonly IPropagatorBlock<TTLValue, IList<TTLValue>> checksumAndNotifyQueue = CreateBuffer<TTLValue>(TimeSpan.FromMilliseconds(100), 100);
-
+        private static readonly IPropagatorBlock<TTLValue, IList<TTLValue>> updateChecksumAndSerializeQueue = CreateBuffer<TTLValue>(TimeSpan.FromMilliseconds(10), 100);
         private static readonly SemaphoreSlim globalStaticLock = new(1);
         private readonly Timer cleanUpTimer;
         private readonly ConcurrentDictionary<string, TTLValue> dictionary = new();
+        private readonly HzCacheMemoryLocker memoryLocker = new(new HzCacheMemoryLockerOptions());
         private readonly HzCacheOptions options;
 
         //IDispisable members
@@ -136,7 +136,7 @@ namespace hzcache
         public void Set<T>(string key, T? value, TimeSpan ttl)
         {
             // Console.WriteLine($"[{options.instanceId}] Set {key} with TTL {ttl} and value {value}");
-            var v = new TTLValue(key, value, ttl, checksumAndNotifyQueue, options.notificationType,
+            var v = new TTLValue(key, value, ttl, updateChecksumAndSerializeQueue, options.notificationType,
                 (tv, objectData) => NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv, objectData));
             dictionary[key] = v;
         }
@@ -144,7 +144,7 @@ namespace hzcache
         /// <summary>
         ///     @see <see cref="IHzCache" />
         /// </summary>
-        public T? GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl)
+        public T? GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
             var value = Get<T>(key);
             if (!IsNullOrDefault(value))
@@ -152,12 +152,23 @@ namespace hzcache
                 return value;
             }
 
+            options.logger?.LogDebug("Cache miss for key {Key}, calling value factory", key);
+
+            var factoryLock = memoryLocker.AcquireLock(options.applicationCachePrefix, options.instanceId, "GET", key, TimeSpan.FromMilliseconds(maxMsToWaitForFactory),
+                options.logger, CancellationToken.None);
+            if (factoryLock is null)
+            {
+                options.logger?.LogDebug("Could not acquire lock for key {Key}, returning default value", key);
+                return value;
+            }
+
             value = valueFactory(key);
-            var ttlValue = new TTLValue(key, value, ttl, checksumAndNotifyQueue, options.notificationType, (tv, objectData) =>
+            var ttlValue = new TTLValue(key, value, ttl, updateChecksumAndSerializeQueue, options.notificationType, (tv, objectData) =>
             {
                 NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv, objectData);
             });
             dictionary[key] = ttlValue;
+            ReleaseLock(factoryLock, "GET", key);
             return value;
         }
 
@@ -209,6 +220,16 @@ namespace hzcache
             return GetEnumerator();
         }
 
+        private object? AcquireLock(string operation, string key)
+        {
+            return memoryLocker.AcquireLock(options.applicationCachePrefix, options.instanceId, operation, key, TimeSpan.FromSeconds(10), options.logger, CancellationToken.None);
+        }
+
+        private void ReleaseLock(object? memoryLock, string? operation, string key)
+        {
+            memoryLocker.ReleaseLock(options.applicationCachePrefix, options.instanceId, operation, key, memoryLock, options.logger);
+        }
+
         public static IPropagatorBlock<TIn, IList<TIn>> CreateBuffer<TIn>(TimeSpan timeSpan, int count)
         {
             var inBlock = new BufferBlock<TIn>();
@@ -238,7 +259,7 @@ namespace hzcache
                 }
             });
 
-            checksumAndNotifyQueue.LinkTo(actionBlock, options);
+            updateChecksumAndSerializeQueue.LinkTo(actionBlock, options);
         }
 
         private async Task ProcessExpiredEviction()

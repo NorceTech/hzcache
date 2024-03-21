@@ -19,8 +19,6 @@ namespace UnitTests
 
     public class LargeMocko
     {
-        public Dictionary<int, Mocko> items { get; set; } = new();
-
         public LargeMocko() { }
 
         public LargeMocko(long numOfItems)
@@ -36,6 +34,8 @@ namespace UnitTests
                 items[i] = m;
             }
         }
+
+        public Dictionary<int, Mocko> items { get; set; } = new();
     }
 
     [TestClass]
@@ -67,6 +67,7 @@ namespace UnitTests
         [TestCategory("Integration")]
         public async Task TestLargeObjects()
         {
+            var redis = ConnectionMultiplexer.Connect("localhost");
             var c1 = new RedisBackplaneHzCache(
                 new RedisBackplaneMemoryMemoryCacheOptions
                 {
@@ -84,10 +85,10 @@ namespace UnitTests
                 Console.WriteLine("Adding 1 to c1");
                 var o = new LargeMocko(5000);
                 var s = Stopwatch.StartNew();
-                c1.Set(""+q, o);
+                c1.Set("" + q, o);
                 Console.WriteLine($"Time to write large object: {s.ElapsedMilliseconds} ms");
                 s = Stopwatch.StartNew();
-                while (c2.Get<LargeMocko>(""+q) == null && s.ElapsedMilliseconds < 30000)
+                while (c2.Get<LargeMocko>("" + q) == null && s.ElapsedMilliseconds < 30000)
                 {
                     await Task.Delay(100);
                 }
@@ -95,6 +96,20 @@ namespace UnitTests
                 Console.WriteLine($"Time from write to available on second node: {s.ElapsedMilliseconds} ms");
                 Assert.IsNotNull(c2.Get<Mocko>("1"));
             }
+
+            c1.Set("testinglargeretrieval", new LargeMocko(10000));
+
+            var stopWatch = Stopwatch.StartNew();
+            while (!redis.GetDatabase().KeyExists("testinglargeretrieval") && stopWatch.ElapsedMilliseconds < 30000)
+            {
+                await Task.Delay(100);
+            }
+
+            stopWatch.Restart();
+            c2.Get<LargeMocko>("testinglargeretrieval");
+            stopWatch.Stop();
+            Assert.IsTrue(stopWatch.ElapsedMilliseconds < 500);
+            Console.WriteLine($"Reading from redis took {stopWatch.ElapsedMilliseconds} ms");
         }
 
 
@@ -215,7 +230,7 @@ namespace UnitTests
         [TestCategory("Integration")]
         public async Task TestDistributedInvalidationPerformance()
         {
-            var iterations = 100000.0d;
+            var iterations = 1000000.0d;
             var redis = ConnectionMultiplexer.Connect("localhost");
             var c1 = new RedisBackplaneHzCache(new RedisBackplaneMemoryMemoryCacheOptions
             {

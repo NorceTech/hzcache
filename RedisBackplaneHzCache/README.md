@@ -1,6 +1,7 @@
 # RedisBackplaneHzCache
 
-This is a wrapper around HzCache and uses HzCache's notification capabilities to implement a two-tiered cache with a Redis
+This is a wrapper around HzCache and uses HzCache's notification capabilities to implement a two-tiered cache with a
+Redis
 as 2nd level cache. This is useful when you have multiple instances of the same application and want to share cache.
 
 ## TL;DR
