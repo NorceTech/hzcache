@@ -11,6 +11,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "HzCache.Benchmarks", "HzCac
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisBackplaneHzCache", "RedisBackplaneHzCache\RedisBackplaneHzCache.csproj", "{21F6B22C-EE16-47F4-A4E3-E10D4F2060D8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RedisIDistributedCache", "RedisIDistributedCache\RedisIDistributedCache.csproj", "{F91CB554-BF50-49BB-898E-809DAF3E3382}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -33,6 +35,10 @@ Global
 		{21F6B22C-EE16-47F4-A4E3-E10D4F2060D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{21F6B22C-EE16-47F4-A4E3-E10D4F2060D8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{21F6B22C-EE16-47F4-A4E3-E10D4F2060D8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{F91CB554-BF50-49BB-898E-809DAF3E3382}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{F91CB554-BF50-49BB-898E-809DAF3E3382}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{F91CB554-BF50-49BB-898E-809DAF3E3382}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{F91CB554-BF50-49BB-898E-809DAF3E3382}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

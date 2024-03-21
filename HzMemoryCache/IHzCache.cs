@@ -1,5 +1,6 @@
 #nullable enable
 using System;
+using System.Collections.Generic;
 using Microsoft.Extensions.Logging;
 
 namespace hzcache
@@ -131,6 +132,9 @@ namespace hzcache
         /// <param name="ttl">TTL of the item</param>
         /// <param name="maxMsToWaitForFactory">The maximum amount of time (in ms) to wait for backend. Default is 10.000ms</param>
         T? GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000);
+
+        public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string, T>>> valueFactory);
+        public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string,T>>> valueFactory, TimeSpan ttl);
 
         /// <summary>
         ///     Tries to remove item with the specified key, also returns the object removed in an "out" var

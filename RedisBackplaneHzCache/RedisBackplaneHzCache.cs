@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using hzcache;
 using Microsoft.Extensions.Logging;
@@ -20,6 +22,7 @@ namespace RedisBackplaneMemoryCache
         private readonly string instanceId = Guid.NewGuid().ToString();
         private readonly RedisBackplaneMemoryMemoryCacheOptions options;
         private readonly ConnectionMultiplexer redis;
+        private readonly IDatabase redisDb;
 
         public RedisBackplaneHzCache(RedisBackplaneMemoryMemoryCacheOptions options)
         {
@@ -35,6 +38,7 @@ namespace RedisBackplaneMemoryCache
             }
 
             redis = ConnectionMultiplexer.Connect(options.redisConnectionString);
+            redisDb = redis.GetDatabase();
             hzCache = new HzMemoryCache(new HzCacheOptions
             {
                 instanceId = this.options.instanceId,
@@ -57,7 +61,7 @@ namespace RedisBackplaneMemoryCache
                             try
                             {
                                 options.logger?.LogTrace("Setting value for key {Key} in redis", key);
-                                redis.GetDatabase().StringSet(redisKey, objectData,
+                                redisDb.StringSet(redisKey, objectData,
                                     TimeSpan.FromMilliseconds(ttlValue.absoluteExpireTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()));
                             }
                             catch (Exception e)
@@ -74,7 +78,7 @@ namespace RedisBackplaneMemoryCache
                             if (options.useRedisAs2ndLevelCache)
                             {
                                 this.options.logger?.LogTrace("Removing keys by pattern {Pattern} in redis", key);
-                                redis.GetDatabase().Execute("EVAL", $"for i, name in ipairs(redis.call(\"KEYS\", \"{redisKey}\")) do redis.call(\"UNLINK\", name); end", "0");
+                                redisDb.Execute("EVAL", $"for i, name in ipairs(redis.call(\"KEYS\", \"{redisKey}\")) do redis.call(\"UNLINK\", name); end", "0");
                             }
                         }
                         else
@@ -85,7 +89,7 @@ namespace RedisBackplaneMemoryCache
                         if (options.useRedisAs2ndLevelCache)
                         {
                             this.options.logger?.LogTrace("Removing value for key {Key} in redis", key);
-                            redis.GetDatabase().KeyDelete(redisKey);
+                            redisDb.KeyDelete(redisKey);
                         }
                     }
                 },
@@ -162,7 +166,7 @@ namespace RedisBackplaneMemoryCache
             var value = hzCache.Get<T>(key);
             if (value == null && options.useRedisAs2ndLevelCache)
             {
-                var redisValue = redis.GetDatabase().StringGet(GetRedisKey(key));
+                var redisValue = redisDb.StringGet(GetRedisKey(key));
                 if (!redisValue.IsNull)
                 {
                     var ttlValue = TTLValue.FromRedisValue<T>(Encoding.ASCII.GetBytes(redisValue.ToString()));
@@ -186,7 +190,57 @@ namespace RedisBackplaneMemoryCache
 
         public T GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
+            // TODO: Fix this HUGE HOLE!
             return hzCache.GetOrSet(key, valueFactory, ttl, maxMsToWaitForFactory);
+        }
+
+        public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string, T>>> valueFactory)
+        {
+            return GetOrSetBatch(keys, valueFactory, options.defaultTTL);
+        }
+        public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string, T>>> valueFactory, TimeSpan ttl)
+        {
+            Func<IList<string>, List<KeyValuePair<string, T>>> redisFactory = (idList) =>
+            {
+                // Create a list of redis keys from the list of cache keys
+                var redisKeyList = idList.Select(GetRedisKey).Select(k => new RedisKey(k)).ToArray();
+                
+                // Get all values from redis, non-existing values are returned as RedisValue where HasValue == false;
+                var redisBatchResult = redisDb.StringGet(redisKeyList);
+                
+                // Create a list of key-value pairs from the redis key list and the redis batch result. Values not found will still have HasValue == false
+                var redisKeyValueBatchResult = redisKeyList.Select((id, i) => new KeyValuePair<string, RedisValue>(id, redisBatchResult[i])).ToList();
+                
+                // Create a list of cache keys for which the value factory should be called
+                var idsForFactoryCall = redisKeyValueBatchResult.Where(rb => !rb.Value.HasValue).Select(rb => rb.Key.ToString()).ToList();
+                
+                // Call the value factory with the list of cache keys missing in redis and create a Dictionary for lookup.
+                var factoryRetrievedValues = valueFactory.Invoke(idsForFactoryCall.Select(CacheKeyFromRedisKey).ToList()).ToDictionary(pair => pair.Key, pair => pair.Value);
+                
+                // Merge factory-retrieved values with the redis values
+                return redisKeyValueBatchResult.Select(kv =>
+                {
+                    var cacheKey = CacheKeyFromRedisKey(kv.Key);
+                    T value;
+                    if (kv.Value.HasValue)
+                    {
+                        var ttlValue = TTLValue.FromRedisValue<T>(Encoding.UTF8.GetBytes(kv.Value));
+                        hzCache.SetRaw(cacheKey, ttlValue);
+                        value = (T) ttlValue.value;
+                    }
+                    else if (factoryRetrievedValues.TryGetValue(cacheKey, out var factoryValue))
+                    {
+                        value = factoryValue;
+                    }
+                    else
+                    {
+                        value = default;
+                    }
+                    return new KeyValuePair<string, T>(cacheKey, value);
+                }).ToList();
+                
+            };
+            return hzCache.GetOrSetBatch(keys, redisFactory, ttl);
         }
 
         public bool Remove(string key)
@@ -197,6 +251,10 @@ namespace RedisBackplaneMemoryCache
         private string GetRedisKey(string cacheKey)
         {
             return $"{options.applicationCachePrefix}:{cacheKey}";
+        }
+        private string CacheKeyFromRedisKey(string redisKey)
+        {
+            return redisKey.Substring(options.applicationCachePrefix.Length + 1);
         }
     }
 }
