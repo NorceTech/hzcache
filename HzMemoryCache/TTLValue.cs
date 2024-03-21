@@ -46,7 +46,7 @@ namespace hzcache
         public long timestampCreated { get; set; }
         public long absoluteExpireTime { get; set; }
         public string checksum { get; set; }
-        
+
         public static TTLValue FromRedisValue<T>(byte[] compressedData)
         {
             // var target = new byte[LZ4Codec.MaximumOutputSize(compressedData.Length)];
@@ -68,21 +68,21 @@ namespace hzcache
 
         public void UpdateChecksum()
         {
-                using var md5 = MD5.Create();
-                var valueJson = JsonSerializer.Serialize(value);
-                checksum = BitConverter.ToString(md5.ComputeHash(valueJson));
-                var redisValue = new TTLRedisValue
-                {
-                    valueJson = valueJson,
-                    key = key,
-                    timestampCreated = timestampCreated,
-                    absoluteExpireTime = absoluteExpireTime,
-                    checksum = checksum,
-                    ttlInMs = ttlInMs,
-                    tickCountWhenToKill = tickCountWhenToKill
-                };
-                var json = JsonSerializer.Serialize(redisValue);
-                postCompletionCallback?.Invoke(this, json);
+            using var md5 = MD5.Create();
+            var valueJson = JsonSerializer.Serialize(value);
+            checksum = BitConverter.ToString(md5.ComputeHash(valueJson));
+            var redisValue = new TTLRedisValue
+            {
+                valueJson = valueJson,
+                key = key,
+                timestampCreated = timestampCreated,
+                absoluteExpireTime = absoluteExpireTime,
+                checksum = checksum,
+                ttlInMs = ttlInMs,
+                tickCountWhenToKill = tickCountWhenToKill
+            };
+            var json = JsonSerializer.Serialize(redisValue);
+            postCompletionCallback?.Invoke(this, json);
         }
 
         public void UpdateTimeToKill()

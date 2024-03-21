@@ -10,11 +10,7 @@ namespace RedisBackplaneMemoryCache
     public class RedisBackplaneMemoryMemoryCacheOptions : HzCacheOptions
     {
         public string redisConnectionString { get; set; }
-        public string applicationCachePrefix { get; set; }
-
         public string instanceId { get; set; }
-
-        //TODO: this needs to be reverted. Sometimes you just want to use the backplane without the 2nd level cache.
         public bool useRedisAs2ndLevelCache { get; set; } = false;
     }
 
@@ -60,6 +56,7 @@ namespace RedisBackplaneMemoryCache
                         {
                             try
                             {
+                                options.logger?.LogTrace("Setting value for key {Key} in redis", key);
                                 redis.GetDatabase().StringSet(redisKey, objectData,
                                     TimeSpan.FromMilliseconds(ttlValue.absoluteExpireTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()));
                             }
@@ -76,6 +73,7 @@ namespace RedisBackplaneMemoryCache
                             RemoveByPattern(key, false);
                             if (options.useRedisAs2ndLevelCache)
                             {
+                                this.options.logger?.LogTrace("Removing keys by pattern {Pattern} in redis", key);
                                 redis.GetDatabase().Execute("EVAL", $"for i, name in ipairs(redis.call(\"KEYS\", \"{redisKey}\")) do redis.call(\"UNLINK\", name); end", "0");
                             }
                         }
@@ -86,6 +84,7 @@ namespace RedisBackplaneMemoryCache
 
                         if (options.useRedisAs2ndLevelCache)
                         {
+                            this.options.logger?.LogTrace("Removing value for key {Key} in redis", key);
                             redis.GetDatabase().KeyDelete(redisKey);
                         }
                     }
@@ -131,11 +130,6 @@ namespace RedisBackplaneMemoryCache
                     }
                 }
             });
-        }
-
-        private string GetRedisKey(string cacheKey)
-        {
-            return $"{options.applicationCachePrefix}:{cacheKey}";
         }
 
         public void RemoveByPattern(string pattern, bool sendNotification = true)
@@ -190,14 +184,19 @@ namespace RedisBackplaneMemoryCache
             hzCache.Set(key, value, ttl);
         }
 
-        public T GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl)
+        public T GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
-            return hzCache.GetOrSet(key, valueFactory, ttl);
+            return hzCache.GetOrSet(key, valueFactory, ttl, maxMsToWaitForFactory);
         }
 
         public bool Remove(string key)
         {
             return hzCache.Remove(key);
+        }
+
+        private string GetRedisKey(string cacheKey)
+        {
+            return $"{options.applicationCachePrefix}:{cacheKey}";
         }
     }
 }
