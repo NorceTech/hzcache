@@ -300,6 +300,35 @@ namespace UnitTests
         }
 
         [TestMethod]
+        [TestCategory("Integration")]
+        public async Task TestRedisBatchGet()
+        {
+            var cache = new HzMemoryCache(new HzCacheOptions {evictionPolicy = EvictionPolicy.FIFO, cleanupJobInterval = 50});
+
+            for (int i = 0; i < 10; i++)
+            {
+                cache.Set("key."+i, new Mocko(i));
+            }
+
+            var keys = new List<string> { "key.0", "key.2", "key.20", "key.30", "key.40"};
+
+            var x = cache.GetOrSetBatch(keys, list =>
+            {
+                var strKeys = String.Join(",", list);
+                Assert.AreEqual("key.20,key.30,key.40", strKeys);
+                return list.Select(k => k.Substring("key.".Length)).Select(int.Parse).Select(i => new KeyValuePair<string,Mocko>("key."+i, new Mocko(i))).ToList();
+            });
+
+            for (int i=0; i<keys.Count; i++)
+            {
+                var key = keys[i];
+                var num = int.Parse(key.Substring("key.".Length));
+                Assert.AreEqual(num, x[i].num);
+            }
+        }
+
+        
+        [TestMethod]
         public async Task TestFIFOPolicy()
         {
             var cache = new HzMemoryCache(new HzCacheOptions {evictionPolicy = EvictionPolicy.FIFO, cleanupJobInterval = 50});
