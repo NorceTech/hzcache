@@ -133,8 +133,26 @@ namespace hzcache
         /// <param name="maxMsToWaitForFactory">The maximum amount of time (in ms) to wait for backend. Default is 10.000ms</param>
         T? GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000);
 
+        /// <summary>
+        ///     Get a list of cache items by key list. If the key doesn't exist, it will be added by the valueFactory which
+        ///     must return a list of KeyValuePairs where the Key is the cache key and the value is the value to add.
+        /// </summary>
+        /// <param name="keys">A list of keys to retrieve</param>
+        /// <param name="valueFactory">A value factory returning a List<KeyValuePair<string, T>> of cache key/value pairs.</param>
+        /// <typeparam name="T">The targeted type</typeparam>
+        /// <returns>A list of items matching the keys.</returns>
         public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string, T>>> valueFactory);
-        public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string,T>>> valueFactory, TimeSpan ttl);
+
+        /// <summary>
+        ///     Get a list of cache items by key list. If the key doesn't exist, it will be added by the valueFactory which
+        ///     must return a list of KeyValuePairs where the Key is the cache key and the value is the value to add.
+        /// </summary>
+        /// <param name="keys">A list of keys to retrieve</param>
+        /// <param name="valueFactory">A value factory returning a List<KeyValuePair<string, T>> of cache key/value pairs.</param>
+        /// <param name="ttl">The desired time-to-live for the objects inserted</param>
+        /// <typeparam name="T">The targeted type</typeparam>
+        /// <returns>A list of items matching the keys.</returns>
+        public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string, T>>> valueFactory, TimeSpan ttl);
 
         /// <summary>
         ///     Tries to remove item with the specified key, also returns the object removed in an "out" var
