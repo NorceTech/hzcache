@@ -311,7 +311,7 @@ namespace UnitTests
             await Task.Delay(100);
             Assert.IsNull(cache.Get<MockObject>("key"));
         }
-
+        
         [TestMethod]
         public async Task TestTtlExtended()
         {

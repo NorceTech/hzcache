@@ -189,6 +189,37 @@ namespace UnitTests
             Assert.IsNotNull(c1.Get<Mocko>("2"));
         }
 
+        
+        [TestMethod]
+        [TestCategory("Integration")]
+        public async Task TestRedisBatchGet()
+        {
+            var redis = ConnectionMultiplexer.Connect("localhost");
+            var c1 = new RedisBackplaneHzCache(
+                new RedisBackplaneMemoryMemoryCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "batch2", instanceId = "c1", useRedisAs2ndLevelCache = true, defaultTTL = TimeSpan.FromSeconds(60)});
+
+            for (int i = 0; i < 10; i++)
+            {
+                c1.Set("key."+i, new Mocko(i));
+            }
+
+            await Task.Delay(3000);
+
+            var keys = new List<string> { "key.0", "key.2", "key.20", "key.30", "key.40"};
+
+            var x = c1.GetOrSetBatch(keys, list =>
+            {
+                return list.Select(k => k.Substring("key.".Length)).Select(int.Parse).Select(i => new KeyValuePair<string,Mocko>("key."+i, new Mocko(i))).ToList();
+            });
+
+            for (int i=0; i<keys.Count; i++)
+            {
+                var key = keys[i];
+                var num = int.Parse(key.Substring("key.".Length));
+                Assert.AreEqual(num, x[i].num);
+            }
+        }
+
 
         [TestMethod]
         [TestCategory("Integration")]

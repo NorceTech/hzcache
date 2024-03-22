@@ -171,6 +171,33 @@ namespace hzcache
             ReleaseLock(factoryLock, "GET", key);
             return value;
         }
+        
+        public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string, T>>> valueFactory)
+        {
+            return GetOrSetBatch(keys, valueFactory, options.defaultTTL);
+        }
+        public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string,T>>> valueFactory, TimeSpan ttl)
+        {
+            var cachedItems = keys.Select(key => new KeyValuePair<string, T?>(key, Get<T>(key)));
+            var missingKeys = cachedItems.Where(kvp => IsNullOrDefault(kvp.Value)).Select(kvp => kvp.Key).ToList();
+            var factoryRetrievedItems = valueFactory(missingKeys).ToDictionary(kv => kv.Key, kv => kv.Value);
+
+            return cachedItems.Select(kv =>
+            {
+                T? value = default;
+                if (kv.Value != null)
+                {
+                    value = kv.Value;
+                }
+                if (kv.Value == null)
+                {
+                    factoryRetrievedItems.TryGetValue(kv.Key, out value);
+                    Set(kv.Key, value, ttl);
+                }
+
+                return new KeyValuePair<string, T?>(kv.Key, value);
+            }).Where(v => v.Value is not null).Select(kv => kv.Value).ToList();
+        }
 
         /// <summary>
         ///     @see <see cref="IHzCache" />
