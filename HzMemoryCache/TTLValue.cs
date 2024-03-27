@@ -1,11 +1,14 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
 using System.Security.Cryptography;
+using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using Utf8Json;
 
-namespace hzcache
+namespace HzCache
 {
     public class TTLValue
     {
@@ -46,20 +49,59 @@ namespace hzcache
         public long timestampCreated { get; set; }
         public long absoluteExpireTime { get; set; }
         public string checksum { get; set; }
+        public long sizeInBytes { get; set; }
+
+        public static byte[] Compress(byte[] data)
+        {
+            using (var compressedStream = new MemoryStream())
+            using (var zipStream = new GZipStream(compressedStream, CompressionLevel.Fastest))
+            {
+                zipStream.Write(data, 0, data.Length);
+                zipStream.Close();
+                return compressedStream.ToArray();
+            }
+        }
+
+        public static byte[] Decompress(byte[] data)
+        {
+            using (var compressedStream = new MemoryStream(data))
+            using (var zipStream = new GZipStream(compressedStream, CompressionMode.Decompress))
+            using (var resultStream = new MemoryStream())
+            {
+                zipStream.CopyTo(resultStream);
+                return resultStream.ToArray();
+            }
+        }
 
         public static TTLValue FromRedisValue<T>(byte[] compressedData)
         {
-            // var target = new byte[LZ4Codec.MaximumOutputSize(compressedData.Length)];
-            // LZ4Codec.Decode(
-            // compressedData, 0, compressedData.Length,
-            // target, 0, target.Length);
             var redisValue = JsonSerializer.Deserialize<TTLRedisValue>(compressedData);
+            using Stream valueStream = new MemoryStream(false ? Decompress(redisValue.valueJson) : redisValue.valueJson);
             return new TTLValue
             {
                 checksum = redisValue.checksum,
                 key = redisValue.key,
                 ttlInMs = redisValue.ttlInMs,
-                value = JsonSerializer.Deserialize<T>(redisValue.valueJson),
+                value = JsonSerializer.Deserialize<T>(valueStream),
+                sizeInBytes = redisValue.valueJson.Length,
+                timestampCreated = redisValue.timestampCreated,
+                tickCountWhenToKill = redisValue.tickCountWhenToKill,
+                absoluteExpireTime = redisValue.absoluteExpireTime
+            };
+        }
+
+        public static async Task<TTLValue> FromRedisValueAsync<T>(byte[] compressedData)
+        {
+            using Stream stream = new MemoryStream(compressedData);
+            var redisValue = await JsonSerializer.DeserializeAsync<TTLRedisValue>(stream);
+            using Stream valueStream = new MemoryStream(false ? Decompress(redisValue.valueJson) : redisValue.valueJson);
+            return new TTLValue
+            {
+                checksum = redisValue.checksum,
+                key = redisValue.key,
+                ttlInMs = redisValue.ttlInMs,
+                value = await JsonSerializer.DeserializeAsync<T>(valueStream),
+                sizeInBytes = redisValue.valueJson.Length,
                 timestampCreated = redisValue.timestampCreated,
                 tickCountWhenToKill = redisValue.tickCountWhenToKill,
                 absoluteExpireTime = redisValue.absoluteExpireTime
@@ -71,9 +113,10 @@ namespace hzcache
             using var md5 = MD5.Create();
             var valueJson = JsonSerializer.Serialize(value);
             checksum = BitConverter.ToString(md5.ComputeHash(valueJson));
+            sizeInBytes = valueJson.Length;
             var redisValue = new TTLRedisValue
             {
-                valueJson = valueJson,
+                valueJson = false ? Compress(valueJson) : valueJson,
                 key = key,
                 timestampCreated = timestampCreated,
                 absoluteExpireTime = absoluteExpireTime,

@@ -1,4 +1,4 @@
-namespace RedisBackplaneMemoryCache
+namespace HzCache
 {
     public class RedisInvalidationMessage
     {
@@ -15,7 +15,7 @@ namespace RedisBackplaneMemoryCache
         public string applicationCachePrefix { get; }
         public string instanceId { get; set; }
         public string key { get; set; }
-        public bool? isPattern { get; set; } = false;
+        public bool? isPattern { get; set; }
         public string checksum { get; set; }
         public long? timestamp { get; set; }
     }

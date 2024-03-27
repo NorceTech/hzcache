@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard2.0</TargetFramework>
-    <PackageId>RedisBackplaneHzCache</PackageId>
+    <PackageId>RedisBackedHzCache</PackageId>
     <Title>RedisBackplaneHzCache</Title>
     <Authors>Anders Heintz</Authors>
     <Product>HzCache</Product>
@@ -13,7 +13,7 @@
     <OutputType>Library</OutputType>
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-    <RootNamespace>RedisBackplaneMemoryCache</RootNamespace>
+    <RootNamespace>HzCache</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>
