@@ -16,7 +16,7 @@
     <GenerateDocumentationFile>True</GenerateDocumentationFile>
     <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     <LangVersion>latestmajor</LangVersion>
-    <RootNamespace>hzcache</RootNamespace>
+    <RootNamespace>HzCache</RootNamespace>
   </PropertyGroup>
 
   <ItemGroup>

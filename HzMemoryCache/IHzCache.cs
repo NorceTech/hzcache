@@ -1,9 +1,10 @@
 #nullable enable
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
 
-namespace hzcache
+namespace HzCache
 {
     public enum CacheItemChangeType
     {
@@ -84,7 +85,7 @@ namespace hzcache
         /// </summary>
         public EvictionPolicy evictionPolicy { get; set; } = EvictionPolicy.LRU;
 
-        public ILogger? logger { get; set; }
+        public ILogger<IHzCache>? logger { get; set; }
     }
 
     public interface IHzCache
@@ -96,12 +97,16 @@ namespace hzcache
         /// <param name="sendNotification"></param>
         void RemoveByPattern(string pattern, bool sendNotification = true);
 
+        Task RemoveByPatternAsync(string pattern, bool sendNotification = true);
+
         /// <summary>
         ///     Attempts to get a value by key
         /// </summary>
         /// <param name="key">The key to get</param>
         /// <returns>True if value exists, otherwise false</returns>
         T? Get<T>(string key);
+
+        Task<T?> GetAsync<T>(string key);
 
         /// <summary>
         ///     Attempts to add a key/value item
@@ -110,6 +115,8 @@ namespace hzcache
         /// <param name="value">The value to add</param>
         /// <returns>True if value was added, otherwise false (already exists)</returns>
         void Set<T>(string key, T? value);
+
+        Task SetAsync<T>(string key, T? value);
 
         /// <summary>
         ///     Adds a key/value pair. This method could potentially be optimized, but not sure as of now.
@@ -123,6 +130,8 @@ namespace hzcache
         /// <returns>True if value was added, otherwise false (already exists)</returns>
         void Set<T>(string key, T? value, TimeSpan ttl);
 
+        Task SetAsync<T>(string key, T? value, TimeSpan ttl);
+
         /// <summary>
         ///     Adds a key/value pair by using the specified function if the key does not already exist, or returns the existing
         ///     value if the key exists.
@@ -133,6 +142,8 @@ namespace hzcache
         /// <param name="maxMsToWaitForFactory">The maximum amount of time (in ms) to wait for backend. Default is 10.000ms</param>
         T? GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000);
 
+        Task<T?> GetOrSetAsync<T>(string key, Func<string, Task<T>> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000);
+
         /// <summary>
         ///     Get a list of cache items by key list. If the key doesn't exist, it will be added by the valueFactory which
         ///     must return a list of KeyValuePairs where the Key is the cache key and the value is the value to add.
@@ -142,6 +153,8 @@ namespace hzcache
         /// <typeparam name="T">The targeted type</typeparam>
         /// <returns>A list of items matching the keys.</returns>
         public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string, T>>> valueFactory);
+
+        public Task<IList<T>> GetOrSetBatchAsync<T>(IList<string> keys, Func<IList<string>, Task<List<KeyValuePair<string, T>>>> valueFactory);
 
         /// <summary>
         ///     Get a list of cache items by key list. If the key doesn't exist, it will be added by the valueFactory which
@@ -154,11 +167,16 @@ namespace hzcache
         /// <returns>A list of items matching the keys.</returns>
         public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string, T>>> valueFactory, TimeSpan ttl);
 
+        public Task<IList<T>> GetOrSetBatchAsync<T>(IList<string> keys, Func<IList<string>, Task<List<KeyValuePair<string, T>>>> valueFactory, TimeSpan ttl);
+
         /// <summary>
         ///     Tries to remove item with the specified key, also returns the object removed in an "out" var
         /// </summary>
         /// <param name="key">The key of the element to remove</param>
         bool Remove(string key);
+
+        Task ClearAsync();
+        Task<bool> RemoveAsync(string key);
     }
 
     public interface IDetailedHzCache : IHzCache
@@ -181,7 +199,7 @@ namespace hzcache
         /// <param name="key">The key of the element to remove</param>
         /// <param name="sendBackplaneNotification">Send backplane notification or not</param>
         /// <param name="checksumEqualsFunc">If function returns true, skip removing the entry</param>
-        bool Remove(string key, bool sendBackplaneNotification = true, Func<string?, bool>? checksumEqualsFunc = null);
+        bool Remove(string key, bool sendBackplaneNotification, Func<string?, bool>? checksumEqualsFunc = null);
 
         CacheStatistics GetStatistics();
     }
@@ -190,5 +208,10 @@ namespace hzcache
     {
         public long Counts { get; set; }
         public long SizeInBytes { get; set; }
+
+        public override string ToString()
+        {
+            return $"Number of keys: {Counts}, SizeInBytes: {SizeInBytes}";
+        }
     }
 }

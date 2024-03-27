@@ -4,7 +4,7 @@ using System.Threading.Tasks;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
-namespace hzcache
+namespace HzCache
 {
     public class HzCacheMemoryLockerOptions
     {

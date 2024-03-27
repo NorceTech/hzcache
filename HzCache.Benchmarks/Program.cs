@@ -2,7 +2,7 @@
 using System.Runtime.Caching;
 using BenchmarkDotNet.Attributes;
 using BenchmarkDotNet.Running;
-using hzcache;
+using HzCache;
 using HzCache.Benchmarks;
 
 BenchmarkRunner.Run<WithRedisInvalidation>();

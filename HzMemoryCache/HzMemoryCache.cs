@@ -12,15 +12,15 @@ using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
 using Microsoft.Extensions.Logging;
 
-namespace hzcache
+namespace HzCache
 {
     /// <summary>
     ///     Simple MemoryCache alternative. Basically a concurrent dictionary with expiration and cache value change
     ///     notifications.
     /// </summary>
-    public class HzMemoryCache : IEnumerable<KeyValuePair<string, object>>, IDisposable, IDetailedHzCache
+    public partial class HzMemoryCache : IEnumerable<KeyValuePair<string, object>>, IDisposable, IDetailedHzCache
     {
-        private static readonly IPropagatorBlock<TTLValue, IList<TTLValue>> updateChecksumAndSerializeQueue = CreateBuffer<TTLValue>(TimeSpan.FromMilliseconds(10), 100);
+        private static readonly IPropagatorBlock<TTLValue, IList<TTLValue>> updateChecksumAndSerializeQueue = CreateBuffer<TTLValue>(TimeSpan.FromMilliseconds(35), 100);
         private static readonly SemaphoreSlim globalStaticLock = new(1);
         private readonly Timer cleanUpTimer;
         private readonly ConcurrentDictionary<string, TTLValue> dictionary = new();
@@ -42,6 +42,7 @@ namespace hzcache
         }
 
         public int Count => dictionary.Count;
+        public long SizeInBytes => dictionary.Values.Sum(ttlv => ttlv.sizeInBytes);
 
 
         public void RemoveByPattern(string pattern, bool sendNotification = true)
@@ -135,7 +136,6 @@ namespace hzcache
         /// </summary>
         public void Set<T>(string key, T? value, TimeSpan ttl)
         {
-            // Console.WriteLine($"[{options.instanceId}] Set {key} with TTL {ttl} and value {value}");
             var v = new TTLValue(key, value, ttl, updateChecksumAndSerializeQueue, options.notificationType,
                 (tv, objectData) => NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv, objectData));
             dictionary[key] = v;
@@ -171,12 +171,13 @@ namespace hzcache
             ReleaseLock(factoryLock, "GET", key);
             return value;
         }
-        
+
         public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string, T>>> valueFactory)
         {
             return GetOrSetBatch(keys, valueFactory, options.defaultTTL);
         }
-        public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string,T>>> valueFactory, TimeSpan ttl)
+
+        public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string, T>>> valueFactory, TimeSpan ttl)
         {
             var cachedItems = keys.Select(key => new KeyValuePair<string, T?>(key, Get<T>(key)));
             var missingKeys = cachedItems.Where(kvp => IsNullOrDefault(kvp.Value)).Select(kvp => kvp.Key).ToList();
@@ -189,6 +190,7 @@ namespace hzcache
                 {
                     value = kv.Value;
                 }
+
                 if (kv.Value == null)
                 {
                     factoryRetrievedItems.TryGetValue(kv.Key, out value);
@@ -198,6 +200,7 @@ namespace hzcache
                 return new KeyValuePair<string, T?>(kv.Key, value);
             }).Where(v => v.Value is not null).Select(kv => kv.Value).ToList();
         }
+
 
         /// <summary>
         ///     @see <see cref="IHzCache" />
@@ -211,14 +214,14 @@ namespace hzcache
         /// <summary>
         ///     @see <see cref="IDetailedHzCache" />
         /// </summary>
-        public bool Remove(string key, bool sendBackplaneNotification = true, Func<string, bool>? skipRemoveIfEqualFunc = null)
+        public bool Remove(string key, bool sendBackplaneNotification, Func<string, bool>? skipRemoveIfEqualFunc = null)
         {
             return RemoveItem(key, CacheItemChangeType.Remove, sendBackplaneNotification, skipRemoveIfEqualFunc);
         }
 
         public CacheStatistics GetStatistics()
         {
-            return new CacheStatistics {Counts = Count, SizeInBytes = 0};
+            return new CacheStatistics {Counts = Count, SizeInBytes = SizeInBytes};
         }
 
         /// <summary>
@@ -301,7 +304,6 @@ namespace hzcache
 
         private bool RemoveItem(string key, CacheItemChangeType changeType, bool sendNotification, Func<string, bool>? areEqualFunc = null)
         {
-            // Console.WriteLine($"[{options.instanceId}] Delete {key}");
             var result = !(!dictionary.TryGetValue(key, out TTLValue ttlValue) || (areEqualFunc != null && areEqualFunc.Invoke(ttlValue.checksum)));
 
             if (result)
@@ -323,8 +325,7 @@ namespace hzcache
 
         private void NotifyItemChange(string key, CacheItemChangeType changeType, TTLValue ttlValue, byte[]? objectData = null, bool isPattern = false)
         {
-            // Console.WriteLine($"Publishing {changeType} for {key} and pattern {isPattern}");
-            options.valueChangeListener.Invoke(key, changeType, ttlValue, objectData, isPattern);
+            options.valueChangeListener(key, changeType, ttlValue, objectData, isPattern);
         }
 
         public void SetRaw(string key, TTLValue value)

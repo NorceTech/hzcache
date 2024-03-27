@@ -3,25 +3,11 @@ using HzCache;
 
 namespace UnitTests
 {
-    public class MockObject
-    {
-        public int? num;
-
-        public MockObject(int num)
-        {
-            this.num = num;
-        }
-
-        public MockObject()
-        {
-        }
-    }
-
     [TestClass]
-    public class UnitTests
+    public class UnitTestsAsync
     {
         [TestMethod]
-        public async Task TestValueChangeNotification()
+        public async Task TestValueChangeNotificationAsync()
         {
             var addOrUpdates = 0;
             var removals = 0;
@@ -47,22 +33,22 @@ namespace UnitTests
                         }
                     }
                 });
-            cache.Set("mock2", new MockObject(1));
+            await cache.SetAsync("mock2", new MockObject(1));
             Assert.AreEqual(1, addOrUpdates);
-            cache.Set("mock2", new MockObject(2));
+            await cache.SetAsync("mock2", new MockObject(2));
             Assert.AreEqual(2, addOrUpdates);
-            cache.Remove("mock2");
+            await cache.RemoveAsync("mock2");
             Assert.AreEqual(1, removals);
-            cache.Remove("mock2");
+            await cache.RemoveAsync("mock2");
             Assert.AreEqual(2, removals);
-            cache.GetOrSet("m", _ => new MockObject(1), TimeSpan.FromMilliseconds(100));
+            await cache.GetOrSetAsync("m", async _ => Task.FromResult(new MockObject(1)), TimeSpan.FromMilliseconds(100));
             Assert.AreEqual(3, addOrUpdates);
             await Task.Delay(200);
             Assert.AreEqual(1, expires);
         }
 
         [TestMethod]
-        public async Task TestRemoveByPattern()
+        public async Task TestRemoveByPatternAsync()
         {
             var removals = 0;
             var cache = new HzMemoryCache(
@@ -80,21 +66,21 @@ namespace UnitTests
                         }
                     }
                 });
-            cache.Set("pelle", new MockObject(42));
-            cache.Set("olle", new MockObject(42));
-            cache.Set("kalle", new MockObject(42));
-            cache.Set("stina", new MockObject(42));
-            cache.Set("lina", new MockObject(42));
-            cache.Set("nina", new MockObject(42));
-            cache.Set("tom", new MockObject(42));
-            cache.Set("tomma", new MockObject(42));
-            cache.Set("flina", new MockObject(42));
+            await cache.SetAsync("pelle", new MockObject(42));
+            await cache.SetAsync("olle", new MockObject(42));
+            await cache.SetAsync("kalle", new MockObject(42));
+            await cache.SetAsync("stina", new MockObject(42));
+            await cache.SetAsync("lina", new MockObject(42));
+            await cache.SetAsync("nina", new MockObject(42));
+            await cache.SetAsync("tom", new MockObject(42));
+            await cache.SetAsync("tomma", new MockObject(42));
+            await cache.SetAsync("flina", new MockObject(42));
 
-            cache.RemoveByPattern("tom*");
+            await cache.RemoveByPatternAsync("tom*");
             Assert.IsNull(cache.Get<MockObject>("tom"));
             Assert.IsNull(cache.Get<MockObject>("tomma"));
 
-            cache.RemoveByPattern("*lle*");
+            await cache.RemoveByPatternAsync("*lle*");
             Assert.IsNull(cache.Get<MockObject>("pelle"));
             Assert.IsNull(cache.Get<MockObject>("kalle"));
             Assert.IsNull(cache.Get<MockObject>("olle"));
@@ -107,11 +93,11 @@ namespace UnitTests
         }
 
         [TestMethod]
-        public async Task TestGetSetCleanup()
+        public async Task TestGetSetCleanupAsync()
         {
             var cache = new HzMemoryCache(new HzCacheOptions {cleanupJobInterval = 200});
-            cache.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
-            var v = cache.Get<MockObject>("42");
+            await cache.SetAsync("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
+            var v = await cache.GetAsync<MockObject>("42");
             Assert.IsTrue(v != null);
             Assert.IsTrue(v.num == 42);
 
@@ -120,13 +106,13 @@ namespace UnitTests
         }
 
         [TestMethod]
-        public async Task TestEviction()
+        public async Task TestEvictionAsync()
         {
             var list = new List<HzMemoryCache>();
             for (var i = 0; i < 20; i++)
             {
                 var cache = new HzMemoryCache(new HzCacheOptions {cleanupJobInterval = 200});
-                cache.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
+                await cache.SetAsync("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
                 list.Add(cache);
             }
 
@@ -145,105 +131,105 @@ namespace UnitTests
         }
 
         [TestMethod]
-        public async Task Shortdelay()
+        public async Task ShortdelayAsync()
         {
             var cache = new HzMemoryCache();
-            cache.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(500));
+            await cache.SetAsync("42", new MockObject(42), TimeSpan.FromMilliseconds(500));
 
             await Task.Delay(20);
 
-            var result = cache.Get<MockObject>("42");
+            var result = await cache.GetAsync<MockObject>("42");
             Assert.IsNotNull(result); //not evicted
             Assert.IsTrue(result.num == 42);
         }
 
         [TestMethod]
-        public async Task TestPrimitives()
+        public async Task TestPrimitivesAsync()
         {
             var cache = new HzMemoryCache();
-            cache.GetOrSet("42", v => 42, TimeSpan.FromMilliseconds(500));
+            await cache.GetOrSetAsync("42", v => Task.FromResult(42), TimeSpan.FromMilliseconds(500));
 
             await Task.Delay(20);
 
-            var result = cache.Get<int>("42");
+            var result = await cache.GetAsync<int>("42");
             Assert.IsNotNull(result); //not evicted
             Assert.IsTrue(result == 42);
         }
 
         [TestMethod]
-        public async Task TestWithDefaultJobInterval()
+        public async Task TestWithDefaultJobIntervalAsync()
         {
             var cache2 = new HzMemoryCache();
-            cache2.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
+            await cache2.SetAsync("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
             Assert.IsNotNull(cache2.Get<MockObject>("42"));
             await Task.Delay(150);
-            Assert.IsNull(cache2.Get<MockObject>("42"));
+            Assert.IsNull(await cache2.GetAsync<MockObject>("42"));
         }
 
         [TestMethod]
-        public void TestRemove()
+        public async Task TestRemoveAsync()
         {
             var cache = new HzMemoryCache();
-            cache.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
-            cache.Remove("42");
+            await cache.SetAsync("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
+            await cache.RemoveAsync("42");
             Assert.IsNull(cache.Get<MockObject>("42"));
         }
 
         [TestMethod]
-        public void TestTryRemove()
+        public async Task TestTryRemoveAsync()
         {
             var cache = new HzMemoryCache();
             cache.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
-            var res = cache.Remove("42");
+            var res = await cache.RemoveAsync("42");
             Assert.IsTrue(res);
-            Assert.IsNull(cache.Get<MockObject>("42"));
+            Assert.IsNull(await cache.GetAsync<MockObject>("42"));
 
             //now try remove non-existing item
-            Assert.IsFalse(cache.Remove("blabblah"));
+            Assert.IsFalse(await cache.RemoveAsync("blabblah"));
         }
 
         [TestMethod]
-        public async Task TestTryRemoveWithTtl()
+        public async Task TestTryRemoveWithTtlAsync()
         {
             var cache = new HzMemoryCache();
-            cache.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
+            await cache.SetAsync("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
             await Task.Delay(120); //let the item expire
 
-            var res = cache.Remove("42");
+            var res = await cache.RemoveAsync("42");
             Assert.IsFalse(res);
         }
 
         [TestMethod]
-        public void TestClear()
+        public async Task TestClear()
         {
             var cache = new HzMemoryCache();
-            cache.GetOrSet("key", _ => new MockObject(1024), TimeSpan.FromSeconds(100));
+            await cache.GetOrSetAsync("key", _ => Task.FromResult(new MockObject(1024)), TimeSpan.FromSeconds(100));
 
-            cache.Clear();
+            await cache.ClearAsync();
 
             Assert.IsNull(cache.Get<MockObject>("key"));
         }
 
         [TestMethod]
-        public async Task TestStampedeProtection()
+        public async Task TestStampedeProtectionAsync()
         {
             var cache = new HzMemoryCache();
             var stopwatch = Stopwatch.StartNew();
-            Task.Run(() =>
+            Task.Run(async () =>
             {
-                cache.GetOrSet("key", _ =>
+                await cache.GetOrSetAsync("key", _ =>
                 {
                     Task.Delay(2000).GetAwaiter().GetResult();
-                    return new MockObject(1024);
+                    return Task.FromResult(new MockObject(1024));
                 }, TimeSpan.FromSeconds(100));
             });
             await Task.Delay(50);
             var timeToInsert = stopwatch.ElapsedTicks / Stopwatch.Frequency * 1000;
             stopwatch.Restart();
-            var x = cache.GetOrSet("key", _ => new MockObject(1024), TimeSpan.FromSeconds(100));
+            var x = await cache.GetOrSetAsync("key", _ => Task.FromResult(new MockObject(1024)), TimeSpan.FromSeconds(100));
             var timeToWait = stopwatch.ElapsedTicks / Stopwatch.Frequency * 1000;
             stopwatch.Restart();
-            cache.GetOrSet("key", _ => new MockObject(1024), TimeSpan.FromSeconds(100));
+            await cache.GetOrSetAsync("key", _ => Task.FromResult(new MockObject(1024)), TimeSpan.FromSeconds(100));
 
             var timeToGetFromMemoryCache = stopwatch.ElapsedTicks / Stopwatch.Frequency * 1000;
 
@@ -255,7 +241,7 @@ namespace UnitTests
         }
 
         [TestMethod]
-        public async Task TestStampedeProtectionTimeout()
+        public async Task TestStampedeProtectionTimeoutAsync()
         {
             var cache = new HzMemoryCache();
             var stopwatch = Stopwatch.StartNew();
@@ -278,30 +264,30 @@ namespace UnitTests
         }
 
         [TestMethod]
-        public void TestNullValue()
+        public async Task TestNullValueAsync()
         {
             var cache = new HzMemoryCache();
-            cache.Set<MockObject>("key", null, TimeSpan.FromSeconds(100));
-            Assert.IsNull(cache.Get<MockObject>("key"));
+            await cache.SetAsync<MockObject>("key", null, TimeSpan.FromSeconds(100));
+            Assert.IsNull(await cache.GetAsync<MockObject>("key"));
         }
 
         [TestMethod]
-        public async Task TestLRUPolicy()
+        public async Task TestLRUPolicyAsync()
         {
             var cache = new HzMemoryCache(new HzCacheOptions {evictionPolicy = EvictionPolicy.LRU, cleanupJobInterval = 50});
-            cache.Set("key", new MockObject(1), TimeSpan.FromMilliseconds(120));
-            Assert.IsNotNull(cache.Get<MockObject>("key"));
+            await cache.SetAsync("key", new MockObject(1), TimeSpan.FromMilliseconds(120));
+            Assert.IsNotNull(await cache.GetAsync<MockObject>("key"));
             await Task.Delay(100);
-            Assert.IsNotNull(cache.Get<MockObject>("key"));
+            Assert.IsNotNull(await cache.GetAsync<MockObject>("key"));
             await Task.Delay(100);
-            Assert.IsNotNull(cache.Get<MockObject>("key"));
+            Assert.IsNotNull(await cache.GetAsync<MockObject>("key"));
             await Task.Delay(125);
-            Assert.IsNull(cache.Get<MockObject>("key"));
+            Assert.IsNull(await cache.GetAsync<MockObject>("key"));
         }
 
         [TestMethod]
         [TestCategory("Integration")]
-        public async Task TestRedisBatchGet()
+        public async Task TestRedisBatchGetAsync()
         {
             var cache = new HzMemoryCache(new HzCacheOptions {evictionPolicy = EvictionPolicy.FIFO, cleanupJobInterval = 50});
 
@@ -319,7 +305,7 @@ namespace UnitTests
                 "key.40"
             };
 
-            var x = cache.GetOrSetBatch(keys, list =>
+            var x = await cache.GetOrSetBatchAsync(keys, async list =>
             {
                 var strKeys = String.Join(",", list);
                 Assert.AreEqual("key.20,key.30,key.40", strKeys);
@@ -336,34 +322,34 @@ namespace UnitTests
 
 
         [TestMethod]
-        public async Task TestFIFOPolicy()
+        public async Task TestFIFOPolicyAsync()
         {
             var cache = new HzMemoryCache(new HzCacheOptions {evictionPolicy = EvictionPolicy.FIFO, cleanupJobInterval = 50});
-            cache.Set("key", new MockObject(1), TimeSpan.FromMilliseconds(220));
+            await cache.SetAsync("key", new MockObject(1), TimeSpan.FromMilliseconds(220));
             await Task.Delay(100);
-            Assert.IsNotNull(cache.Get<MockObject>("key"));
+            Assert.IsNotNull(await cache.GetAsync<MockObject>("key"));
             await Task.Delay(100);
-            Assert.IsNotNull(cache.Get<MockObject>("key"));
+            Assert.IsNotNull(await cache.GetAsync<MockObject>("key"));
             await Task.Delay(100);
-            Assert.IsNull(cache.Get<MockObject>("key"));
+            Assert.IsNull(await cache.GetAsync<MockObject>("key"));
         }
 
         [TestMethod]
         public async Task TestTtlExtended()
         {
             var cache = new HzMemoryCache();
-            cache.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(300));
+            await cache.SetAsync("42", new MockObject(42), TimeSpan.FromMilliseconds(300));
 
             await Task.Delay(50);
-            var result = cache.Get<MockObject>("42");
+            var result = await cache.GetAsync<MockObject>("42");
             Assert.IsNotNull(result); //not evicted
             Assert.IsTrue(result.num == 42);
 
-            cache.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(300));
+            await cache.SetAsync("42", new MockObject(42), TimeSpan.FromMilliseconds(300));
 
             await Task.Delay(250);
 
-            result = cache.Get<MockObject>("42");
+            result = await cache.GetAsync<MockObject>("42");
             Assert.IsNotNull(result); //still not evicted
             Assert.IsTrue(result.num == 42);
         }

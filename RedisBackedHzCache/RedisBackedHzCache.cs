@@ -1,30 +1,28 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
-using hzcache;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using Utf8Json;
 
-namespace RedisBackplaneMemoryCache
+namespace HzCache
 {
-    public class RedisBackplaneMemoryMemoryCacheOptions : HzCacheOptions
+    public class RedisBackedHzCacheOptions : HzCacheOptions
     {
         public string redisConnectionString { get; set; }
-        public string instanceId { get; set; }
-        public bool useRedisAs2ndLevelCache { get; set; } = false;
+        public bool useRedisAs2ndLevelCache { get; set; }
     }
 
-    public class RedisBackplaneHzCache : IDetailedHzCache
+    public partial class RedisBackedHzCache : IDetailedHzCache
     {
         private readonly HzMemoryCache hzCache;
         private readonly string instanceId = Guid.NewGuid().ToString();
-        private readonly RedisBackplaneMemoryMemoryCacheOptions options;
-        private readonly ConnectionMultiplexer redis;
+        private readonly RedisBackedHzCacheOptions options;
         private readonly IDatabase redisDb;
 
-        public RedisBackplaneHzCache(RedisBackplaneMemoryMemoryCacheOptions options)
+        public RedisBackedHzCache(RedisBackedHzCacheOptions options)
         {
             this.options = options;
             if (this.options.redisConnectionString != null)
@@ -37,7 +35,7 @@ namespace RedisBackplaneMemoryCache
                 instanceId = options.instanceId;
             }
 
-            redis = ConnectionMultiplexer.Connect(options.redisConnectionString);
+            var redis = ConnectionMultiplexer.Connect(options.redisConnectionString);
             redisDb = redis.GetDatabase();
             hzCache = new HzMemoryCache(new HzCacheOptions
             {
@@ -49,20 +47,20 @@ namespace RedisBackplaneMemoryCache
                 {
                     options.valueChangeListener?.Invoke(key, changeType, ttlValue, objectData, isPattern);
                     var redisChannel = new RedisChannel(options.applicationCachePrefix, RedisChannel.PatternMode.Auto);
-                    // Console.WriteLine($"Publishing message {changeType} {this.options.applicationCachePrefix} {instanceId} {key} {ttlValue?.checksum} {ttlValue?.timestampCreated} {isPattern}");
                     var messageObject = new RedisInvalidationMessage(this.options.applicationCachePrefix, instanceId, key, ttlValue?.checksum, ttlValue?.timestampCreated,
                         isPattern);
                     redis.GetSubscriber().PublishAsync(redisChannel, new RedisValue(JsonSerializer.ToJsonString(messageObject)));
                     var redisKey = GetRedisKey(key);
                     if (changeType == CacheItemChangeType.AddOrUpdate)
                     {
-                        if (options.useRedisAs2ndLevelCache && objectData != null)
+                        if (options.useRedisAs2ndLevelCache && objectData != null && ttlValue != null)
                         {
                             try
                             {
-                                options.logger?.LogTrace("Setting value for key {Key} in redis", key);
+                                var stopwatch = Stopwatch.StartNew();
                                 redisDb.StringSet(redisKey, objectData,
                                     TimeSpan.FromMilliseconds(ttlValue.absoluteExpireTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()));
+                                options.logger?.LogTrace("Writing value for key {Key} in redis took {Elapsed} ms", key, stopwatch.ElapsedMilliseconds);
                             }
                             catch (Exception e)
                             {
@@ -122,8 +120,6 @@ namespace RedisBackplaneMemoryCache
 
                 if (invalidationMessage.instanceId != instanceId)
                 {
-                    // Console.WriteLine(
-                    // $"[{instanceId}] Received invalidation for key {invalidationMessage.key} from {invalidationMessage.instanceId}, isPattern: {invalidationMessage.isPattern}");
                     if (invalidationMessage.isPattern.HasValue && invalidationMessage.isPattern.Value)
                     {
                         hzCache.RemoveByPattern(invalidationMessage.key, false);
@@ -151,14 +147,14 @@ namespace RedisBackplaneMemoryCache
             hzCache.Clear();
         }
 
-        public bool Remove(string key, bool sendBackplaneNotification = true, Func<string, bool> skipRemoveIfEqualFunc = null)
+        public bool Remove(string key, bool sendBackplaneNotification, Func<string, bool> skipRemoveIfEqualFunc = null)
         {
             return hzCache.Remove(key, sendBackplaneNotification, skipRemoveIfEqualFunc);
         }
 
         public CacheStatistics GetStatistics()
         {
-            throw new NotImplementedException();
+            return hzCache.GetStatistics();
         }
 
         public T Get<T>(string key)
@@ -166,7 +162,9 @@ namespace RedisBackplaneMemoryCache
             var value = hzCache.Get<T>(key);
             if (value == null && options.useRedisAs2ndLevelCache)
             {
+                var stopwatch = Stopwatch.StartNew();
                 var redisValue = redisDb.StringGet(GetRedisKey(key));
+                options.logger?.LogTrace("Reading value for key {Key} in redis took {Elapsed} ms", key, stopwatch.ElapsedMilliseconds);
                 if (!redisValue.IsNull)
                 {
                     var ttlValue = TTLValue.FromRedisValue<T>(Encoding.ASCII.GetBytes(redisValue.ToString()));
@@ -190,7 +188,6 @@ namespace RedisBackplaneMemoryCache
 
         public T GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
-            // TODO: Fix this HUGE HOLE!
             return hzCache.GetOrSet(key, valueFactory, ttl, maxMsToWaitForFactory);
         }
 
@@ -198,25 +195,26 @@ namespace RedisBackplaneMemoryCache
         {
             return GetOrSetBatch(keys, valueFactory, options.defaultTTL);
         }
+
         public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string, T>>> valueFactory, TimeSpan ttl)
         {
-            Func<IList<string>, List<KeyValuePair<string, T>>> redisFactory = (idList) =>
+            Func<IList<string>, List<KeyValuePair<string, T>>> redisFactory = idList =>
             {
                 // Create a list of redis keys from the list of cache keys
                 var redisKeyList = idList.Select(GetRedisKey).Select(k => new RedisKey(k)).ToArray();
-                
+
                 // Get all values from redis, non-existing values are returned as RedisValue where HasValue == false;
                 var redisBatchResult = redisDb.StringGet(redisKeyList);
-                
+
                 // Create a list of key-value pairs from the redis key list and the redis batch result. Values not found will still have HasValue == false
                 var redisKeyValueBatchResult = redisKeyList.Select((id, i) => new KeyValuePair<string, RedisValue>(id, redisBatchResult[i])).ToList();
-                
+
                 // Create a list of cache keys for which the value factory should be called
                 var idsForFactoryCall = redisKeyValueBatchResult.Where(rb => !rb.Value.HasValue).Select(rb => rb.Key.ToString()).ToList();
-                
+
                 // Call the value factory with the list of cache keys missing in redis and create a Dictionary for lookup.
                 var factoryRetrievedValues = valueFactory.Invoke(idsForFactoryCall.Select(CacheKeyFromRedisKey).ToList()).ToDictionary(pair => pair.Key, pair => pair.Value);
-                
+
                 // Merge factory-retrieved values with the redis values
                 return redisKeyValueBatchResult.Select(kv =>
                 {
@@ -226,7 +224,7 @@ namespace RedisBackplaneMemoryCache
                     {
                         var ttlValue = TTLValue.FromRedisValue<T>(Encoding.UTF8.GetBytes(kv.Value));
                         hzCache.SetRaw(cacheKey, ttlValue);
-                        value = (T) ttlValue.value;
+                        value = (T)ttlValue.value;
                     }
                     else if (factoryRetrievedValues.TryGetValue(cacheKey, out var factoryValue))
                     {
@@ -236,9 +234,9 @@ namespace RedisBackplaneMemoryCache
                     {
                         value = default;
                     }
+
                     return new KeyValuePair<string, T>(cacheKey, value);
                 }).ToList();
-                
             };
             return hzCache.GetOrSetBatch(keys, redisFactory, ttl);
         }
@@ -252,6 +250,7 @@ namespace RedisBackplaneMemoryCache
         {
             return $"{options.applicationCachePrefix}:{cacheKey}";
         }
+
         private string CacheKeyFromRedisKey(string redisKey)
         {
             return redisKey.Substring(options.applicationCachePrefix.Length + 1);

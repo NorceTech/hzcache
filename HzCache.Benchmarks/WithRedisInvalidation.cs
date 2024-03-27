@@ -1,8 +1,6 @@
 using System.Collections.Concurrent;
 using System.Runtime.Caching;
 using BenchmarkDotNet.Attributes;
-using hzcache;
-using RedisBackplaneMemoryCache;
 
 namespace HzCache.Benchmarks
 {
@@ -10,7 +8,7 @@ namespace HzCache.Benchmarks
     [MemoryDiagnoser]
     public class WithRedisInvalidation
     {
-        private static readonly IDetailedHzCache _hzCache = new RedisBackplaneHzCache(new RedisBackplaneMemoryMemoryCacheOptions
+        private static readonly IDetailedHzCache _hzCache = new RedisBackedHzCache(new RedisBackedHzCacheOptions
         {
             applicationCachePrefix = "benchmark",
             redisConnectionString = "localhost",
