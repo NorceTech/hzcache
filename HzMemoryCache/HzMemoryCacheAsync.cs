@@ -31,21 +31,28 @@ namespace HzCache
 
             options.logger?.LogDebug("Cache miss for key {Key}, calling value factory", key);
 
-            var factoryLock = memoryLocker.AcquireLock(options.applicationCachePrefix, options.instanceId, "GET", key, TimeSpan.FromMilliseconds(maxMsToWaitForFactory),
+            var factoryLock = await memoryLocker.AcquireLockAsync(options.applicationCachePrefix, options.instanceId, "GET", key, TimeSpan.FromMilliseconds(maxMsToWaitForFactory),
                 options.logger, CancellationToken.None);
             if (factoryLock is null)
             {
                 options.logger?.LogDebug("Could not acquire lock for key {Key}, returning default value", key);
-                return value;
+                throw new Exception($"Could not acquire lock for key {key}");
             }
 
-            value = await valueFactory(key);
-            var ttlValue = new TTLValue(key, value, ttl, updateChecksumAndSerializeQueue, options.notificationType, (tv, objectData) =>
+            try
             {
-                NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv, objectData);
-            });
-            dictionary[key] = ttlValue;
-            ReleaseLock(factoryLock, "GET", key);
+                value = await valueFactory(key);
+                var ttlValue = new TTLValue(key, value, ttl, updateChecksumAndSerializeQueue, options.notificationType, (tv, objectData) =>
+                {
+                    NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv, objectData);
+                });
+                dictionary[key] = ttlValue;
+            }
+            finally
+            {
+                ReleaseLock(factoryLock, "GET", key);
+            }
+
             return value;
         }
 
