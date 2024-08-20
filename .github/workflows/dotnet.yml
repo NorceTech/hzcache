@@ -27,8 +27,7 @@ jobs:
       - name: Extract branch name if release
         if: startsWith(github.ref, 'refs/heads/release') != true
         shell: bash
-        #run: echo "BRANCH=0.0.1" >> $GITHUB_ENV
-        run: echo "BRANCH=$(echo $GITHUB_REF | cut -d '/' -f 4)" >> $GITHUB_ENV
+        run: echo "BRANCH=0.0.1" >> $GITHUB_ENV
       - name: Extract branch name if not release
         if: startsWith(github.ref, 'refs/heads/release')
         shell: bash
