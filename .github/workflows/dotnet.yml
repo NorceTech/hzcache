@@ -25,10 +25,16 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
       - name: Extract branch name if release
+        if: startsWith(github.ref, 'refs/heads/release') != true
         shell: bash
-        run: echo "BRANCH=$(echo $GITHUB_REF)"
+        #run: echo "BRANCH=0.0.1" >> $GITHUB_ENV
+        run: echo "BRANCH=$(echo $GITHUB_REF | cut -d '/' -f 4)" >> $GITHUB_ENV
+      - name: Extract branch name if not release
+        if: startsWith(github.ref, 'refs/heads/release')
+        shell: bash
+        run: echo "BRANCH=$(echo $GITHUB_REF | cut -d '/' -f 4)" >> $GITHUB_ENV
       - name: Build
-        run: dotnet build --no-restore
+        run: dotnet build --no-restore -c Release /property:Version=${{ env.BRANCH }}
       - name: Test
         run: dotnet test --no-build --verbosity normal --filter "TestCategory!=Integration"
       - name: Publish
