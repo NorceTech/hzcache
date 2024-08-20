@@ -28,7 +28,8 @@ jobs:
         if: startsWith(github.ref, 'refs/heads/release')
         shell: bash
 #        run: echo "BRANCH=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/release/}}"
-        run: echo "BRANCH=${{ github.ref }}"
+        run: |
+          echo "Current Branch: ${{ github.ref }}"
       - name: Extract branch name if not release
         if: !startsWith(github.ref, 'refs/heads/release')
         shell: bash
