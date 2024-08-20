@@ -5,7 +5,7 @@ name: .NET
 
 on:
   push:
-    branches: [ "main", "release/*" ]
+    branches: [ "main", "release/*", "feature/*", "bugfix/*" ]
   pull_request:
     branches: [ "main" ]
 
@@ -24,8 +24,16 @@ jobs:
           dotnet-version: 8.0.x
       - name: Restore dependencies
         run: dotnet restore
+      - name: Extract branch name if release
+        if: startsWith(github.ref, 'refs/heads/release') != true
+        shell: bash
+        run: echo "BRANCH=0.0.1" >> $GITHUB_ENV
+      - name: Extract branch name if not release
+        if: startsWith(github.ref, 'refs/heads/release')
+        shell: bash
+        run: echo "BRANCH=$(echo $GITHUB_REF | cut -d '/' -f 4)" >> $GITHUB_ENV
       - name: Build
-        run: dotnet build --no-restore
+        run: dotnet build --no-restore /property:Version=${{ env.BRANCH }}
       - name: Test
         run: dotnet test --no-build --verbosity normal --filter "TestCategory!=Integration"
       - name: Publish
