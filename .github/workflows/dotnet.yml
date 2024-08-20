@@ -25,9 +25,7 @@ jobs:
       - name: Restore dependencies
         run: dotnet restore
       - name: Extract branch name if release
-        if: startsWith(github.ref, 'refs/heads/release')
         shell: bash
-#        run: echo "BRANCH=${GITHUB_HEAD_REF:-${GITHUB_REF#refs/heads/release/}}"
         run: echo "BRANCH=$(echo $GITHUB_REF | cut -d'/' -f 3)"
       - name: Extract branch name if not release
         if: !startsWith(github.ref, 'refs/heads/release')
