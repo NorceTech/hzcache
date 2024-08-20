@@ -27,13 +27,8 @@ jobs:
       - name: Extract branch name if release
         shell: bash
         run: echo "BRANCH=$(echo $GITHUB_REF | cut -d'/' -f 3)"
-      - name: Extract branch name if not release
-        if: !startsWith(github.ref, 'refs/heads/release')
-        shell: bash
-        run: echo "BRANCH=0.0.1" >> $GITHUB_ENV
-        id: extract_branch_version
       - name: Build
-        run: dotnet build --no-restore -c Release /property:Version=${{ env.BRANCH }}
+        run: dotnet build --no-restore
       - name: Test
         run: dotnet test --no-build --verbosity normal --filter "TestCategory!=Integration"
       - name: Publish
