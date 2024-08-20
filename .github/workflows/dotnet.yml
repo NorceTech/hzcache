@@ -33,7 +33,7 @@ jobs:
         shell: bash
         run: echo "BRANCH=$(echo $GITHUB_REF | cut -d '/' -f 4)" >> $GITHUB_ENV
       - name: Build
-        run: dotnet build --no-restore -c Release /property:Version=${{ env.BRANCH }}
+        run: dotnet build --no-restore /property:Version=${{ env.BRANCH }}
       - name: Test
         run: dotnet test --no-build --verbosity normal --filter "TestCategory!=Integration"
       - name: Publish
