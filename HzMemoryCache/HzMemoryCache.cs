@@ -3,6 +3,7 @@ using System;
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
@@ -162,6 +163,7 @@ namespace HzCache
                 throw new Exception($"Could not acquire lock for key {key}");
             }
 
+            var stopwatch = Stopwatch.StartNew();
             try
             {
                 value = valueFactory(key);
@@ -174,6 +176,10 @@ namespace HzCache
             finally
             {
                 ReleaseLock(factoryLock, "GET", key);
+                if (options.logSlowFactoryExecutions && stopwatch.ElapsedMilliseconds > options.slowFactoryExecutionThreshold)
+                {
+                    options.logger?.LogWarning("Long running value factory execution for key {Key} took {ElapsedMs}ms", key, stopwatch.ElapsedMilliseconds);
+                }
             }
 
             return value;
