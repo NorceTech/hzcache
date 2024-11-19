@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reactive.Joins;
 using System.Text;
 using System.Threading.Tasks;
+using HzCache.Diagnostics;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 
@@ -13,11 +15,13 @@ namespace HzCache
     {
         public async Task RemoveByPatternAsync(string pattern, bool sendNotification = true)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.RemoveByPattern, Activities.Project.RedisBackedHzCache,async:true, pattern: pattern,sendNotification:sendNotification);
             await hzCache.RemoveByPatternAsync(pattern, sendNotification);
         }
 
         public async Task<T> GetAsync<T>(string key)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.Get, Activities.Project.RedisBackedHzCache, async: true, key: key);
             var value = await hzCache.GetAsync<T>(key);
             if (value == null && options.useRedisAs2ndLevelCache)
             {
@@ -40,16 +44,19 @@ namespace HzCache
 
         public async Task SetAsync<T>(string key, T value)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.Set, Activities.Project.RedisBackedHzCache, async: true, key: key);
             await hzCache.SetAsync(key, value);
         }
 
         public async Task SetAsync<T>(string key, T value, TimeSpan ttl)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.Set, Activities.Project.RedisBackedHzCache, async: true, key: key);
             await hzCache.SetAsync(key, value, ttl);
         }
 
         public async Task<T> GetOrSetAsync<T>(string key, Func<string, Task<T>> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.GetOrSet, Activities.Project.RedisBackedHzCache, async: true, key: key);
             return await hzCache.GetOrSetAsync(key, valueFactory, ttl, maxMsToWaitForFactory);
         }
 
@@ -60,6 +67,7 @@ namespace HzCache
 
         public async Task<IList<T>> GetOrSetBatchAsync<T>(IList<string> keys, Func<IList<string>, Task<List<KeyValuePair<string, T>>>> valueFactory, TimeSpan ttl)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.GetOrSetBatch, Activities.Project.RedisBackedHzCache, async: true, key: string.Join(",",keys??new List<string>()));
             Func<IList<string>, Task<List<KeyValuePair<string, T>>>> redisFactory = async idList =>
             {
                 // Create a list of redis keys from the list of cache keys
@@ -106,11 +114,13 @@ namespace HzCache
 
         public async Task ClearAsync()
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.Clear, Activities.Project.RedisBackedHzCache, async: true);
             await hzCache.ClearAsync();
         }
 
         public async Task<bool> RemoveAsync(string key)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.Remove, Activities.Project.RedisBackedHzCache, async: true, key: key);
             return await hzCache.RemoveAsync(key);
         }
     }

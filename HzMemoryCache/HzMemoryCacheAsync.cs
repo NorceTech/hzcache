@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
+using HzCache.Diagnostics;
 using Microsoft.Extensions.Logging;
 
 namespace HzCache
@@ -17,12 +18,15 @@ namespace HzCache
 
         public Task SetAsync<T>(string key, T? value, TimeSpan ttl)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.Set, Activities.Project.HzMemoryCache, async: true, key: key);
             Set(key, value, ttl);
             return Task.CompletedTask;
         }
 
         public async Task<T?> GetOrSetAsync<T>(string key, Func<string, Task<T>> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.GetOrSet, Activities.Project.HzMemoryCache, async: true, key: key);
+
             var value = Get<T>(key);
             if (!IsNullOrDefault(value))
             {
@@ -64,6 +68,8 @@ namespace HzCache
 
         public async Task<IList<T>> GetOrSetBatchAsync<T>(IList<string> keys, Func<IList<string>, Task<List<KeyValuePair<string, T>>>> valueFactory, TimeSpan ttl)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.GetOrSetBatch, Activities.Project.HzMemoryCache, async: true, key: string.Join(",", keys ?? new List<string>()));
+
             var cachedItems = keys.Select(key => new KeyValuePair<string, T?>(key, Get<T>(key)));
             var missingKeys = cachedItems.Where(kvp => IsNullOrDefault(kvp.Value)).Select(kvp => kvp.Key).ToList();
             var factoryRetrievedItems = (await valueFactory(missingKeys)).ToDictionary(kv => kv.Key, kv => kv.Value);
@@ -88,6 +94,7 @@ namespace HzCache
 
         public async Task ClearAsync()
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.Clear, Activities.Project.HzMemoryCache, async: true);
             var kvps = dictionary.ToArray();
             dictionary.Clear();
             foreach (var kv in kvps)
@@ -98,11 +105,13 @@ namespace HzCache
 
         public async Task<bool> RemoveAsync(string key)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.Remove, Activities.Project.HzMemoryCache, async: true, key: key);
             return await RemoveAsync(key, options.notificationType != NotificationType.None);
         }
 
         public async Task RemoveByPatternAsync(string pattern, bool sendNotification = true)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.RemoveByPattern, Activities.Project.HzMemoryCache, async: true, pattern: pattern,sendNotification:sendNotification);
             var myPattern = pattern;
             if (pattern[0] != '*')
             {
@@ -123,6 +132,7 @@ namespace HzCache
 
         public async Task<T> GetAsync<T>(string key)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.Get, Activities.Project.HzMemoryCache, async: true, key: key);
             var defaultValue = default(T);
 
             if (!dictionary.TryGetValue(key, out var ttlValue))
@@ -150,11 +160,13 @@ namespace HzCache
 
         public async Task<bool> RemoveAsync(string key, bool sendBackplaneNotification = true, Func<string, bool>? skipRemoveIfEqualFunc = null)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.Remove, Activities.Project.HzMemoryCache, async: true, key: key);
             return await RemoveItemAsync(key, CacheItemChangeType.Remove, sendBackplaneNotification, skipRemoveIfEqualFunc);
         }
 
         private async Task<bool> RemoveItemAsync(string key, CacheItemChangeType changeType, bool sendNotification, Func<string, bool>? areEqualFunc = null)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.RemoveItem, Activities.Project.HzMemoryCache, async: true, key: key);
             var result = !(!dictionary.TryGetValue(key, out var ttlValue) || (areEqualFunc != null && areEqualFunc.Invoke(ttlValue.checksum)));
 
             if (result)

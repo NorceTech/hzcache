@@ -5,11 +5,13 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Concurrency;
+using System.Reactive.Joins;
 using System.Reactive.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
+using HzCache.Diagnostics;
 using Microsoft.Extensions.Logging;
 
 namespace HzCache
@@ -47,6 +49,8 @@ namespace HzCache
 
         public void RemoveByPattern(string pattern, bool sendNotification = true)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.RemoveByPattern, Activities.Project.HzMemoryCache, pattern: pattern, sendNotification: sendNotification);
+
             var myPattern = pattern;
             if (pattern[0] != '*')
             {
@@ -146,6 +150,8 @@ namespace HzCache
         /// </summary>
         public T? GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.GetOrSet, Activities.Project.HzMemoryCache, key: key);
+
             var value = Get<T>(key);
             if (!IsNullOrDefault(value))
             {
@@ -332,6 +338,8 @@ namespace HzCache
 
         private void NotifyItemChange(string key, CacheItemChangeType changeType, TTLValue ttlValue, byte[]? objectData = null, bool isPattern = false)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.NotifyItemChange, Activities.Project.HzMemoryCache, key: key);
+
             options.valueChangeListener(key, changeType, ttlValue, objectData, isPattern);
         }
 
