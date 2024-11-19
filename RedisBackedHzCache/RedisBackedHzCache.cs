@@ -174,7 +174,7 @@ namespace HzCache
             if (value == null && options.useRedisAs2ndLevelCache)
             {
                 var stopwatch = Stopwatch.StartNew();
-                var redisValue = redisDb.StringGet(GetRedisKey(key));
+                var redisValue = GetRedisValue(key);
                 options.logger?.LogTrace("Reading value for key {Key} in redis took {Elapsed} ms", key, stopwatch.ElapsedMilliseconds);
                 if (!redisValue.IsNull)
                 {
@@ -185,6 +185,12 @@ namespace HzCache
             }
 
             return value;
+        }
+
+        private RedisValue GetRedisValue(string key)
+        {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.GetRedis, Activities.Project.RedisBackedHzCache, key: key);
+            return redisDb.StringGet(GetRedisKey(key));
         }
 
         public void Set<T>(string key, T value)

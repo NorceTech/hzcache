@@ -26,7 +26,7 @@ namespace HzCache
             if (value == null && options.useRedisAs2ndLevelCache)
             {
                 var stopwatch = Stopwatch.StartNew();
-                var redisValue = await redisDb.StringGetAsync(GetRedisKey(key));
+                var redisValue = await GetRedisValueAsync(key);
                 options.logger?.LogTrace("Redis get for key {Key} took {Elapsed} ms", key, stopwatch.ElapsedMilliseconds);
                 stopwatch.Restart();
                 if (!redisValue.IsNull)
@@ -40,6 +40,12 @@ namespace HzCache
             }
 
             return value;
+        }
+
+        private async Task<RedisValue> GetRedisValueAsync(string key)
+        {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.GetRedis, Activities.Project.RedisBackedHzCache, async: true, key: key);
+            return await redisDb.StringGetAsync(GetRedisKey(key));
         }
 
         public async Task SetAsync<T>(string key, T value)
