@@ -10,12 +10,15 @@ namespace HzCache.Diagnostics
         public static class Names
         {
             public const string Set = "set from cache";
+            public const string SetRedis = "set to redis";
             public const string Get = "get from cache";
             public const string GetRedis = "get from redis";
             public const string GetOrSet = "get or set from cache";
             public const string GetOrSetBatch = "get or set batch from cache";
             public const string Remove = "remove";
             public const string RemoveByPattern = "remove by pattern";
+            public const string RemoveRedis = "remove from redis";
+            public const string RemoveByPatternRedis = "remove by pattern from redis";
             public const string RemoveItem = "remove item";
             public const string Clear = "clear";
             public const string ExecuteFactory = "execute factory";
@@ -26,6 +29,7 @@ namespace HzCache.Diagnostics
             public const string EvictExpired = "evict expired";
             public const string GetStatistics = "get statistics";
             public const string ProcessExpiredEviction = "process expired eviction";
+
         }
 
         public static class Project

@@ -61,8 +61,7 @@ namespace HzCache
                             try
                             {
                                 var stopwatch = Stopwatch.StartNew();
-                                redisDb.StringSet(redisKey, objectData,
-                                    TimeSpan.FromMilliseconds(ttlValue.absoluteExpireTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()));
+                                RedisSet(redisKey, objectData, ttlValue);
                                 options.logger?.LogTrace("Writing value for key {Key} in redis took {Elapsed} ms", key, stopwatch.ElapsedMilliseconds);
                             }
                             catch (Exception e)
@@ -79,7 +78,7 @@ namespace HzCache
                             if (options.useRedisAs2ndLevelCache)
                             {
                                 this.options.logger?.LogTrace("Removing keys by pattern {Pattern} in redis", key);
-                                redisDb.Execute("EVAL", $"for i, name in ipairs(redis.call(\"KEYS\", \"{redisKey}\")) do redis.call(\"UNLINK\", name); end", "0");
+                                RedisRemoveByPattern(redisKey);
                             }
                         }
                         else
@@ -90,7 +89,7 @@ namespace HzCache
                         if (options.useRedisAs2ndLevelCache)
                         {
                             this.options.logger?.LogTrace("Removing value for key {Key} in redis", key);
-                            redisDb.KeyDelete(redisKey);
+                            RedisRemove(redisKey);
                         }
                     }
                 },
@@ -134,6 +133,25 @@ namespace HzCache
                     }
                 }
             });
+        }
+
+        private void RedisRemove(string redisKey)
+        {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.RemoveRedis, Activities.Project.RedisBackedHzCache, key: redisKey);
+            redisDb.KeyDelete(redisKey);
+        }
+
+        private void RedisRemoveByPattern(string redisKey)
+        {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.RemoveByPatternRedis, Activities.Project.RedisBackedHzCache, key: redisKey);
+            redisDb.Execute("EVAL", $"for i, name in ipairs(redis.call(\"KEYS\", \"{redisKey}\")) do redis.call(\"UNLINK\", name); end", "0");
+        }
+
+        private void RedisSet(string redisKey, byte[] objectData, TTLValue ttlValue)
+        {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.SetRedis, Activities.Project.RedisBackedHzCache, key:redisKey);
+            redisDb.StringSet(redisKey, objectData,
+                TimeSpan.FromMilliseconds(ttlValue.absoluteExpireTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()));
         }
 
         public void RemoveByPattern(string pattern, bool sendNotification = true)
