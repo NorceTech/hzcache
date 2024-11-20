@@ -50,7 +50,7 @@ namespace HzCache.Diagnostics
 
         public static Activity? StartActivityWithCommonTags(this ActivitySource source, string activityName, string project, bool async = false, string? key = null, string? pattern = null, bool? sendNotification = null)
         {
-            if (source.HasListeners() == false || !HzCacheTracesInstrumentationOptions.Instance.IsActive(activityName))
+            if (source.HasListeners() == false || !HzCacheTracesInstrumentationOptions.Instance.IsActive(activityName, project, key))
                 return null;
 
             return source.StartActivity(
