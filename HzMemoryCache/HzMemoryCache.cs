@@ -71,6 +71,8 @@ namespace HzCache
 
         public void EvictExpired()
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.EvictExpired, Activities.Project.HzMemoryCache);
+
             if (Monitor.TryEnter(cleanUpTimer)) //use the timer-object for our lock, it's local, private and instance-type, so its ok
             {
                 try
@@ -102,6 +104,8 @@ namespace HzCache
         /// </summary>
         public T? Get<T>(string key)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.Get, Activities.Project.HzMemoryCache);
+
             var defaultValue = default(T);
 
             if (!dictionary.TryGetValue(key, out var ttlValue))
@@ -140,6 +144,8 @@ namespace HzCache
         /// </summary>
         public void Set<T>(string key, T? value, TimeSpan ttl)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.Set, Activities.Project.HzMemoryCache);
+
             var v = new TTLValue(key, value, ttl, updateChecksumAndSerializeQueue, options.notificationType,
                 (tv, objectData) => NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv, objectData));
             dictionary[key] = v;
@@ -168,9 +174,16 @@ namespace HzCache
                 throw new Exception($"Could not acquire lock for key {key}");
             }
 
+            
             try
             {
-                value = valueFactory(key);
+                using (var executeActivity =
+                       Activities.Source.StartActivityWithCommonTags(Activities.Names.ExecuteFactory,
+                           Activities.Project.HzMemoryCache, key: key))
+                {
+                    value = valueFactory(key);
+                }
+
                 var ttlValue = new TTLValue(key, value, ttl, updateChecksumAndSerializeQueue, options.notificationType, (tv, objectData) =>
                 {
                     NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv, objectData);
@@ -307,6 +320,7 @@ namespace HzCache
 
         private async Task ProcessExpiredEviction()
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.ProcessExpiredEviction, Activities.Project.HzMemoryCache);
             await globalStaticLock.WaitAsync().ConfigureAwait(false);
             try
             {
@@ -317,6 +331,8 @@ namespace HzCache
 
         private bool RemoveItem(string key, CacheItemChangeType changeType, bool sendNotification, Func<string, bool>? areEqualFunc = null)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.RemoveItem, Activities.Project.HzMemoryCache, key: key);
+
             var result = !(!dictionary.TryGetValue(key, out TTLValue ttlValue) || (areEqualFunc != null && areEqualFunc.Invoke(ttlValue.checksum)));
 
             if (result)

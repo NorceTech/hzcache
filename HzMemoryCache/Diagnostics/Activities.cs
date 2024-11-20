@@ -18,13 +18,14 @@ namespace HzCache.Diagnostics
             public const string RemoveByPattern = "remove by pattern";
             public const string RemoveItem = "remove item";
             public const string Clear = "clear";
+            public const string ExecuteFactory = "execute factory";
 
             public const string NotifyItemChange = "notify item change";
             public const string Subscribe = "subscribe";
             public const string ValueChanged = "value changed";
             public const string EvictExpired = "evict expired";
             public const string GetStatistics = "get statistics";
-
+            public const string ProcessExpiredEviction = "process expired eviction";
         }
 
         public static class Project

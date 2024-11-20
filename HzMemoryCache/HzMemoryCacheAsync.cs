@@ -72,7 +72,14 @@ namespace HzCache
 
             var cachedItems = keys.Select(key => new KeyValuePair<string, T?>(key, Get<T>(key)));
             var missingKeys = cachedItems.Where(kvp => IsNullOrDefault(kvp.Value)).Select(kvp => kvp.Key).ToList();
-            var factoryRetrievedItems = (await valueFactory(missingKeys)).ToDictionary(kv => kv.Key, kv => kv.Value);
+            Dictionary<string, T> factoryRetrievedItems;
+            using (var executeActivity =
+                   Activities.Source.StartActivityWithCommonTags(Activities.Names.ExecuteFactory,
+                       Activities.Project.HzMemoryCache, key: string.Join(",", missingKeys ?? new List<string>())))
+            {
+                factoryRetrievedItems =
+                    (await valueFactory(missingKeys)).ToDictionary(kv => kv.Key, kv => kv.Value);
+            }
 
             return cachedItems.Select(kv =>
             {
