@@ -3,7 +3,7 @@ using System;
 
 namespace HzCache.Diagnostics
 {
-    internal static class TracerProviderBuilderBuilderExtensions
+    public static class TracerProviderBuilderBuilderExtensions
     {
         public static TracerProviderBuilder AddHzCacheMemoryInstrumentation(this TracerProviderBuilder builder,
             Action<HzCacheTracesInstrumentationOptions>? configure = null)
