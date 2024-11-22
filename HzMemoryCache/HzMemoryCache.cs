@@ -49,7 +49,7 @@ namespace HzCache
 
         public void RemoveByPattern(string pattern, bool sendNotification = true)
         {
-            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.RemoveByPattern, Activities.Project.HzMemoryCache, pattern: pattern, sendNotification: sendNotification);
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.RemoveByPattern, Activities.Area.HzMemoryCache, pattern: pattern, sendNotification: sendNotification);
 
             var myPattern = pattern;
             if (pattern[0] != '*')
@@ -71,7 +71,7 @@ namespace HzCache
 
         public void EvictExpired()
         {
-            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.EvictExpired, Activities.Project.HzMemoryCache);
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.EvictExpired, Activities.Area.HzMemoryCache);
 
             if (Monitor.TryEnter(cleanUpTimer)) //use the timer-object for our lock, it's local, private and instance-type, so its ok
             {
@@ -104,7 +104,7 @@ namespace HzCache
         /// </summary>
         public T? Get<T>(string key)
         {
-            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.Get, Activities.Project.HzMemoryCache);
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.Get, Activities.Area.HzMemoryCache);
 
             var defaultValue = default(T);
 
@@ -144,7 +144,7 @@ namespace HzCache
         /// </summary>
         public void Set<T>(string key, T? value, TimeSpan ttl)
         {
-            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.Set, Activities.Project.HzMemoryCache);
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.Set, Activities.Area.HzMemoryCache);
 
             var v = new TTLValue(key, value, ttl, updateChecksumAndSerializeQueue, options.notificationType,
                 (tv, objectData) => NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv, objectData));
@@ -156,7 +156,7 @@ namespace HzCache
         /// </summary>
         public T? GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
-            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.GetOrSet, Activities.Project.HzMemoryCache, key: key);
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.GetOrSet, Activities.Area.HzMemoryCache, key: key);
 
             var value = Get<T>(key);
             if (!IsNullOrDefault(value))
@@ -184,7 +184,7 @@ namespace HzCache
                 }
                 using (var executeActivity =
                        Activities.Source.StartActivityWithCommonTags(Activities.Names.ExecuteFactory,
-                           Activities.Project.HzMemoryCache, key: key))
+                           Activities.Area.HzMemoryCache, key: key))
                 {
                 
                     value = valueFactory(key);
@@ -326,7 +326,7 @@ namespace HzCache
 
         private async Task ProcessExpiredEviction()
         {
-            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.ProcessExpiredEviction, Activities.Project.HzMemoryCache);
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.ProcessExpiredEviction, Activities.Area.HzMemoryCache);
             await globalStaticLock.WaitAsync().ConfigureAwait(false);
             try
             {
@@ -337,7 +337,7 @@ namespace HzCache
 
         private bool RemoveItem(string key, CacheItemChangeType changeType, bool sendNotification, Func<string, bool>? areEqualFunc = null)
         {
-            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.RemoveItem, Activities.Project.HzMemoryCache, key: key);
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.RemoveItem, Activities.Area.HzMemoryCache, key: key);
 
             var result = !(!dictionary.TryGetValue(key, out TTLValue ttlValue) || (areEqualFunc != null && areEqualFunc.Invoke(ttlValue.checksum)));
 
@@ -360,7 +360,7 @@ namespace HzCache
 
         private void NotifyItemChange(string key, CacheItemChangeType changeType, TTLValue ttlValue, byte[]? objectData = null, bool isPattern = false)
         {
-            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.NotifyItemChange, Activities.Project.HzMemoryCache, key: key);
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.NotifyItemChange, Activities.Area.HzMemoryCache, key: key);
 
             options.valueChangeListener(key, changeType, ttlValue, objectData, isPattern);
         }

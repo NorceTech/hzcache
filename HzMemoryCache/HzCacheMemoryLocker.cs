@@ -36,7 +36,7 @@ namespace HzCache
 
         private SemaphoreSlim GetSemaphore(string cacheName, string cacheInstanceId, string key, ILogger? logger)
         {
-            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.GetSemaphore, Activities.Project.HzCacheMemoryLocker, key: key);
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.GetSemaphore, Activities.Area.HzCacheMemoryLocker, key: key);
 
             object? _semaphore;
 
@@ -82,7 +82,7 @@ namespace HzCache
         public async ValueTask<object> AcquireLockAsync(string cacheName, string cacheInstanceId, string operationId, string key, TimeSpan timeout, ILogger? logger,
             CancellationToken token)
         {
-            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.GetSemaphore, Activities.Project.HzCacheMemoryLocker, key: key);
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.GetSemaphore, Activities.Area.HzCacheMemoryLocker, key: key);
             var semaphore = GetSemaphore(cacheName, cacheInstanceId, key, logger);
 
             if (logger?.IsEnabled(LogLevel.Trace) ?? false)
@@ -119,7 +119,7 @@ namespace HzCache
         /// <inheritdoc />
         public object? AcquireLock(string cacheName, string cacheInstanceId, string operationId, string key, TimeSpan timeout, ILogger? logger, CancellationToken token)
         {
-            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.AcquireLock, Activities.Project.HzCacheMemoryLocker, key: key);
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.AcquireLock, Activities.Area.HzCacheMemoryLocker, key: key);
 
             var semaphore = GetSemaphore(cacheName, cacheInstanceId, key, logger);
 
@@ -156,7 +156,7 @@ namespace HzCache
         /// <inheritdoc />
         public void ReleaseLock(string cacheName, string cacheInstanceId, string operationId, string key, object? lockObj, ILogger? logger)
         {
-            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.ReleaseLock, Activities.Project.HzCacheMemoryLocker, key: key);
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.ReleaseLock, Activities.Area.HzCacheMemoryLocker, key: key);
 
             if (lockObj is null)
             {

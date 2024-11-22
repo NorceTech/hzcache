@@ -15,6 +15,7 @@ namespace HzCache.Diagnostics
             public const string GetRedis = "get from redis";
             public const string GetOrSet = "get or set from cache";
             public const string GetOrSetBatch = "get or set batch from cache";
+            public const string GetBatchRedis = "get batch from redis";
             public const string Remove = "remove";
             public const string RemoveByPattern = "remove by pattern";
             public const string RemoveRedis = "remove from redis";
@@ -33,14 +34,16 @@ namespace HzCache.Diagnostics
             public const string AcquireLock = "acquire lock";
             public const string GetSemaphore = "get semaphore";
             public const string ReleaseLock = "release lock";
-            
+
+
         }
 
-        public static class Project
+        public static class Area
         {
             public const string HzMemoryCache = "HzMemoryCache";
             public const string HzCacheMemoryLocker = "HzCacheMemoryLocker"; 
             public const string RedisBackedHzCache = "RedisBackedHzCache";
+            public const string Redis = "RedisCache";
         }
 
         private static IEnumerable<KeyValuePair<string, object>> GetCommonTags(string? key, string project, bool async, string? pattern, bool? sendNotification)
