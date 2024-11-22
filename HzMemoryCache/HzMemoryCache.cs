@@ -211,6 +211,9 @@ namespace HzCache
 
         public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string, T>>> valueFactory, TimeSpan ttl)
         {
+            using var activity = Activities.Source.StartActivityWithCommonTags(Activities.Names.GetOrSetBatch, Activities.Area.HzMemoryCache, key: string.Join(",",keys??new List<string>()));
+
+
             var cachedItems = keys.Select(key => new KeyValuePair<string, T?>(key, Get<T>(key)));
             var missingKeys = cachedItems.Where(kvp => IsNullOrDefault(kvp.Value)).Select(kvp => kvp.Key).ToList();
             var factoryRetrievedItems = valueFactory(missingKeys).ToDictionary(kv => kv.Key, kv => kv.Value);
