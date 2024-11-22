@@ -41,7 +41,8 @@ namespace HzCache
 
             try
             {
-                if ((value = Get<T>(key)) is not null)
+                value = Get<T>(key);
+                if (!IsNullOrDefault(value))
                 {
                     return value;
                 }
