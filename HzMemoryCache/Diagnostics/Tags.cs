@@ -9,6 +9,8 @@
             public const string SendNotification = "hzcache.sendNotification";
             public const string Project = "hzcache.project";
             public const string Async = "hzcache.operation.async";
+            public const string AcquiredLock = "hzcache.result.lock.acquired";
+            public const string ReleasedLock = "hzcache.result.lock.released";
         }
     }
 }

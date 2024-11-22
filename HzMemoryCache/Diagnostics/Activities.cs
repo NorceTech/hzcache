@@ -30,11 +30,16 @@ namespace HzCache.Diagnostics
             public const string GetStatistics = "get statistics";
             public const string ProcessExpiredEviction = "process expired eviction";
 
+            public const string AcquireLock = "acquire lock";
+            public const string GetSemaphore = "get semaphore";
+            public const string ReleaseLock = "release lock";
+            
         }
 
         public static class Project
         {
             public const string HzMemoryCache = "HzMemoryCache";
+            public const string HzCacheMemoryLocker = "HzCacheMemoryLocker"; 
             public const string RedisBackedHzCache = "RedisBackedHzCache";
         }
 
