@@ -170,25 +170,22 @@ namespace UnitTests
             Assert.IsTrue(result == 42);
         }
 
-        /// <summary>
-        /// This test fails, it's not supported to handle that the default primitive value is cached.
-        /// </summary>
         [TestMethod]
         public async Task TestZeroIntFactoryCall()
         {
-            // var cache = new HzMemoryCache();
-            // cache.GetOrSet("0", v => 0, TimeSpan.FromMilliseconds(500000));
-            //
-            // await Task.Delay(50);
-            // cache.GetOrSet("0", v =>
-            // {
-            //     Assert.Fail("Shouldn't be called!");
-            //     return 0;
-            // }, TimeSpan.FromMilliseconds(500000));
-            //
-            // var result = cache.Get<int>("42");
-            // Assert.IsNotNull(result); //not evicted
-            // Assert.IsTrue(result == 0);
+            var cache = new HzMemoryCache();
+            cache.GetOrSet("0", v => 0, TimeSpan.FromMilliseconds(500000));
+            
+            await Task.Delay(50);
+            cache.GetOrSet("0", v =>
+            {
+                Assert.Fail("Shouldn't be called!");
+                return 0;
+            }, TimeSpan.FromMilliseconds(500000));
+            
+            var result = cache.Get<int>("42");
+            Assert.IsNotNull(result); //not evicted
+            Assert.IsTrue(result == 0);
         }
 
         [TestMethod]

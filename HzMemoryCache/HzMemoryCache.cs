@@ -98,30 +98,44 @@ namespace HzCache
         /// </summary>
         public T? Get<T>(string key)
         {
-            var defaultValue = default(T);
-
-            if (!dictionary.TryGetValue(key, out var ttlValue))
+            if (TryGetUpdateTimeToKill(key, out TTLValue ttlValue))
             {
-                return defaultValue;
+                return ttlValue.value is T o ? o : default;
             }
 
-            if (ttlValue.IsExpired()) //found but expired
-            {
-                return defaultValue;
-            }
-
-            if (options.evictionPolicy == EvictionPolicy.LRU)
-            {
-                ttlValue.UpdateTimeToKill();
-            }
-
-            if (ttlValue.value is T o)
-            {
-                return o;
-            }
 
             return default;
         }
+
+        private bool TryGetUpdateTimeToKill(string key, out TTLValue value)
+        {
+            if (TryGet(key, out value))
+            {
+                if (options.evictionPolicy == EvictionPolicy.LRU)
+                {
+                    value.UpdateTimeToKill();
+                }
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool TryGet(string key, out TTLValue value)
+        {
+            if (dictionary.TryGetValue(key, out value))
+            {
+                if (value.IsExpired())
+                {
+                    value = null;
+                    return false;
+                }
+
+                return true;
+            }
+
+            return false;
+        } 
 
         /// <summary>
         ///     @see <see cref="IHzCache" />
@@ -164,13 +178,15 @@ namespace HzCache
 
             try
             {
-                value = Get<T>(key);
-                if (!IsNullOrDefault(value))
+                if (TryGetUpdateTimeToKill(key, out TTLValue ttlValue))
                 {
-                    return value;
+                    if (ttlValue.value is T o)
+                    {
+                        return o;
+                    }
                 }
                 value = valueFactory(key);
-                var ttlValue = new TTLValue(key, value, ttl, updateChecksumAndSerializeQueue, options.notificationType, (tv, objectData) =>
+                ttlValue = new TTLValue(key, value, ttl, updateChecksumAndSerializeQueue, options.notificationType, (tv, objectData) =>
                 {
                     NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv, objectData);
                 });

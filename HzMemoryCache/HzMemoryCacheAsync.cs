@@ -41,13 +41,15 @@ namespace HzCache
 
             try
             {
-                value = Get<T>(key);
-                if (!IsNullOrDefault(value))
+                if (TryGetUpdateTimeToKill(key, out TTLValue ttlValue))
                 {
-                    return value;
+                    if (ttlValue.value is T o)
+                    {
+                        return o;
+                    }
                 }
                 value = await valueFactory(key);
-                var ttlValue = new TTLValue(key, value, ttl, updateChecksumAndSerializeQueue, options.notificationType, (tv, objectData) =>
+                ttlValue = new TTLValue(key, value, ttl, updateChecksumAndSerializeQueue, options.notificationType, (tv, objectData) =>
                 {
                     NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv, objectData);
                 });
