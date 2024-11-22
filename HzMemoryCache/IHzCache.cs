@@ -86,6 +86,8 @@ namespace HzCache
         public EvictionPolicy evictionPolicy { get; set; } = EvictionPolicy.LRU;
 
         public ILogger<IHzCache>? logger { get; set; }
+        public bool logSlowFactoryExecutions { get; set; } = false;
+        public int slowFactoryExecutionThreshold { get; set; } = 10000;
     }
 
     public interface IHzCache
