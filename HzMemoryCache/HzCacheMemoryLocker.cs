@@ -111,7 +111,7 @@ namespace HzCache
                         operationId, key);
                 }
             }
-            activity.AddTag(Tags.Names.AcquiredLock, acquired);
+            activity?.AddTag(Tags.Names.AcquiredLock, acquired);
 
             return acquired ? semaphore : null;
         }
@@ -149,7 +149,7 @@ namespace HzCache
                         operationId, key);
                 }
             }
-            activity.AddTag(Tags.Names.AcquiredLock, acquired);
+            activity?.AddTag(Tags.Names.AcquiredLock, acquired);
             return acquired ? semaphore : null;
         }
 
@@ -166,7 +166,7 @@ namespace HzCache
             try
             {
                 ((SemaphoreSlim)lockObj).Release();
-                activity.AddTag(Tags.Names.ReleasedLock, true);
+                activity?.AddTag(Tags.Names.ReleasedLock, true);
             }
             catch (Exception exc)
             {
@@ -176,7 +176,7 @@ namespace HzCache
                         "FUSION [N={CacheName} I={CacheInstanceId}] (O={CacheOperationId} K={CacheKey}): an error occurred while trying to release a SemaphoreSlim in the memory locker",
                         cacheName, cacheInstanceId, operationId, key);
                 }
-                activity.AddTag(Tags.Names.ReleasedLock, false);
+                activity?.AddTag(Tags.Names.ReleasedLock, false);
             }
         }
     }
