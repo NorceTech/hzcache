@@ -278,6 +278,32 @@ namespace UnitTests
         }
 
         [TestMethod]
+        public async Task TestStampedeProtectionNoFactoryCallAfterLockWait()
+        {
+            var cache = new HzMemoryCache();
+            var stopwatch = Stopwatch.StartNew();
+            Task.Run(() =>
+            {
+                cache.GetOrSet("key", _ =>
+                {
+                    Task.Delay(2000).GetAwaiter().GetResult();
+                    return new MockObject(1024);
+                }, TimeSpan.FromSeconds(10000), 1000);
+            });
+            await Task.Delay(50);
+            var timeToInsert = stopwatch.ElapsedTicks / Stopwatch.Frequency * 1000;
+            stopwatch.Restart();
+            var x = cache.GetOrSet("key", _ =>
+            {
+                Assert.Fail("Should not be called");
+                return new MockObject(2048);
+            }, TimeSpan.FromSeconds(100));
+            Assert.AreEqual(x?.num, 1024);
+        }
+
+
+
+        [TestMethod]
         public void TestNullValue()
         {
             var cache = new HzMemoryCache();
