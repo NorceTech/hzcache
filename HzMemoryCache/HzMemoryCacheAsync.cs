@@ -50,7 +50,14 @@ namespace HzCache
                 {
                     return value;
                 }
-                value = await valueFactory(key);
+
+                using (var executeActivity =
+                       Activities.Source.StartActivityWithCommonTags(Activities.Names.ExecuteFactory,
+                           Activities.Area.HzMemoryCache,async:true, key: key))
+                {
+                    value = await valueFactory(key);
+                }
+
                 var ttlValue = new TTLValue(key, value, ttl, updateChecksumAndSerializeQueue, options.notificationType, (tv, objectData) =>
                 {
                     NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv, objectData);
