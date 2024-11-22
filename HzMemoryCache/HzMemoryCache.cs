@@ -177,10 +177,16 @@ namespace HzCache
             
             try
             {
+                value = Get<T>(key);
+                if (!IsNullOrDefault(value))
+                {
+                    return value;
+                }
                 using (var executeActivity =
                        Activities.Source.StartActivityWithCommonTags(Activities.Names.ExecuteFactory,
                            Activities.Project.HzMemoryCache, key: key))
                 {
+                
                     value = valueFactory(key);
                 }
 

@@ -245,22 +245,23 @@ namespace UnitTests
         {
             var cache = new HzMemoryCache();
             var stopwatch = Stopwatch.StartNew();
-            Task.Run(() =>
+            Task.Run(async () =>
             {
-                cache.GetOrSet("key", _ =>
+                await cache.GetOrSetAsync("key",async _ =>
                 {
-                    Task.Delay(2000).GetAwaiter().GetResult();
+                    await Task.Delay(2000);
                     return new MockObject(1024);
                 }, TimeSpan.FromSeconds(100), 1000);
             });
             await Task.Delay(50);
             var timeToInsert = stopwatch.ElapsedTicks / Stopwatch.Frequency * 1000;
             stopwatch.Restart();
-            var x = cache.GetOrSet("key", _ => new MockObject(2048), TimeSpan.FromSeconds(100));
+            // The above "factory" takes 2000 ms to complete, this call should hang for 2000 ms and then return 1024.
+            var x = await cache.GetOrSetAsync("key", async _ => new MockObject(2048), TimeSpan.FromSeconds(100));
             var timeToWait = stopwatch.ElapsedTicks / Stopwatch.Frequency * 1000;
             stopwatch.Restart();
-            var value = cache.GetOrSet("key", _ => new MockObject(1024), TimeSpan.FromSeconds(100));
-            Assert.AreEqual(value?.num, 2048);
+            var value = await cache.GetOrSetAsync("key", async _ => new MockObject(1024), TimeSpan.FromSeconds(100));
+            Assert.AreEqual(value?.num, 1024);
         }
 
         [TestMethod]

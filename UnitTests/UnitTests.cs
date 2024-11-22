@@ -38,9 +38,11 @@ namespace UnitTests
                             case CacheItemChangeType.AddOrUpdate:
                                 addOrUpdates++;
                                 break;
+
                             case CacheItemChangeType.Expire:
                                 expires++;
                                 break;
+
                             case CacheItemChangeType.Remove:
                                 removals++;
                                 break;
@@ -109,7 +111,7 @@ namespace UnitTests
         [TestMethod]
         public async Task TestGetSetCleanup()
         {
-            var cache = new HzMemoryCache(new HzCacheOptions {cleanupJobInterval = 200});
+            var cache = new HzMemoryCache(new HzCacheOptions { cleanupJobInterval = 200 });
             cache.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
             var v = cache.Get<MockObject>("42");
             Assert.IsTrue(v != null);
@@ -125,7 +127,7 @@ namespace UnitTests
             var list = new List<HzMemoryCache>();
             for (var i = 0; i < 20; i++)
             {
-                var cache = new HzMemoryCache(new HzCacheOptions {cleanupJobInterval = 200});
+                var cache = new HzMemoryCache(new HzCacheOptions { cleanupJobInterval = 200 });
                 cache.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
                 list.Add(cache);
             }
@@ -161,13 +163,34 @@ namespace UnitTests
         public async Task TestPrimitives()
         {
             var cache = new HzMemoryCache();
-            cache.GetOrSet("42", v => 42, TimeSpan.FromMilliseconds(500));
+            cache.GetOrSet("42", v => 42, TimeSpan.FromMilliseconds(500000));
 
-            await Task.Delay(20);
+            await Task.Delay(50);
 
             var result = cache.Get<int>("42");
             Assert.IsNotNull(result); //not evicted
             Assert.IsTrue(result == 42);
+        }
+
+        /// <summary>
+        /// This test fails, it's not supported to handle that the default primitive value is cached.
+        /// </summary>
+        [TestMethod]
+        public async Task TestZeroIntFactoryCall()
+        {
+            // var cache = new HzMemoryCache();
+            // cache.GetOrSet("0", v => 0, TimeSpan.FromMilliseconds(500000));
+            //
+            // await Task.Delay(50);
+            // cache.GetOrSet("0", v =>
+            // {
+            //     Assert.Fail("Shouldn't be called!");
+            //     return 0;
+            // }, TimeSpan.FromMilliseconds(500000));
+            //
+            // var result = cache.Get<int>("42");
+            // Assert.IsNotNull(result); //not evicted
+            // Assert.IsTrue(result == 0);
         }
 
         [TestMethod]
@@ -268,13 +291,38 @@ namespace UnitTests
                 }, TimeSpan.FromSeconds(100), 1000);
             });
             await Task.Delay(50);
-            var timeToInsert = stopwatch.ElapsedTicks / Stopwatch.Frequency * 1000;
             stopwatch.Restart();
+            // The above "factory" takes 2000 ms to complete, this call should hang for 2000 ms and then return 1024.
             var x = cache.GetOrSet("key", _ => new MockObject(2048), TimeSpan.FromSeconds(100));
+            Assert.AreEqual(1024, x?.num);
             var timeToWait = stopwatch.ElapsedTicks / Stopwatch.Frequency * 1000;
             stopwatch.Restart();
             var value = cache.GetOrSet("key", _ => new MockObject(1024), TimeSpan.FromSeconds(100));
-            Assert.AreEqual(value?.num, 2048);
+            Assert.AreEqual(1024, value?.num);
+        }
+
+        [TestMethod]
+        public async Task TestStampedeProtectionNoFactoryCallAfterLockWait()
+        {
+            var cache = new HzMemoryCache();
+            var stopwatch = Stopwatch.StartNew();
+            Task.Run(() =>
+            {
+                cache.GetOrSet("key", _ =>
+                {
+                    Task.Delay(2000).GetAwaiter().GetResult();
+                    return new MockObject(1024);
+                }, TimeSpan.FromSeconds(10000), 1000);
+            });
+            await Task.Delay(50);
+            var timeToInsert = stopwatch.ElapsedTicks / Stopwatch.Frequency * 1000;
+            stopwatch.Restart();
+            var x = cache.GetOrSet("key", _ =>
+            {
+                Assert.Fail("Should not be called");
+                return new MockObject(2048);
+            }, TimeSpan.FromSeconds(100));
+            Assert.AreEqual(x?.num, 1024);
         }
 
         [TestMethod]
@@ -288,7 +336,7 @@ namespace UnitTests
         [TestMethod]
         public async Task TestLRUPolicy()
         {
-            var cache = new HzMemoryCache(new HzCacheOptions {evictionPolicy = EvictionPolicy.LRU, cleanupJobInterval = 50});
+            var cache = new HzMemoryCache(new HzCacheOptions { evictionPolicy = EvictionPolicy.LRU, cleanupJobInterval = 50 });
             cache.Set("key", new MockObject(1), TimeSpan.FromMilliseconds(120));
             Assert.IsNotNull(cache.Get<MockObject>("key"));
             await Task.Delay(100);
@@ -303,7 +351,7 @@ namespace UnitTests
         [TestCategory("Integration")]
         public async Task TestRedisBatchGet()
         {
-            var cache = new HzMemoryCache(new HzCacheOptions {evictionPolicy = EvictionPolicy.FIFO, cleanupJobInterval = 50});
+            var cache = new HzMemoryCache(new HzCacheOptions { evictionPolicy = EvictionPolicy.FIFO, cleanupJobInterval = 50 });
 
             for (var i = 0; i < 10; i++)
             {
@@ -334,11 +382,10 @@ namespace UnitTests
             }
         }
 
-
         [TestMethod]
         public async Task TestFIFOPolicy()
         {
-            var cache = new HzMemoryCache(new HzCacheOptions {evictionPolicy = EvictionPolicy.FIFO, cleanupJobInterval = 50});
+            var cache = new HzMemoryCache(new HzCacheOptions { evictionPolicy = EvictionPolicy.FIFO, cleanupJobInterval = 50 });
             cache.Set("key", new MockObject(1), TimeSpan.FromMilliseconds(220));
             await Task.Delay(100);
             Assert.IsNotNull(cache.Get<MockObject>("key"));

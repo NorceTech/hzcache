@@ -45,6 +45,11 @@ namespace HzCache
 
             try
             {
+                value = Get<T>(key);
+                if (!IsNullOrDefault(value))
+                {
+                    return value;
+                }
                 value = await valueFactory(key);
                 var ttlValue = new TTLValue(key, value, ttl, updateChecksumAndSerializeQueue, options.notificationType, (tv, objectData) =>
                 {
