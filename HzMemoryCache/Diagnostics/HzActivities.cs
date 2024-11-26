@@ -3,9 +3,10 @@ using System.Diagnostics;
 
 namespace HzCache.Diagnostics
 {
-    public static class Activities
+    public static class HzActivities
     {
-        public static ActivitySource? Source => new(HzCacheDiagnostics.ActivitySourceName, HzCacheDiagnostics.HzCacheVersion);
+        public const string HzCacheActivitySourceName = "HzMemoryCache";
+        public static ActivitySource? Source => new(HzCacheActivitySourceName);
 
         public static class Names
         {
