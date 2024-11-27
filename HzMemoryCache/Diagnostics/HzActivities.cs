@@ -35,14 +35,12 @@ namespace HzCache.Diagnostics
             public const string AcquireLock = "acquire lock";
             public const string GetSemaphore = "get semaphore";
             public const string ReleaseLock = "release lock";
-
-
         }
 
         public static class Area
         {
             public const string HzMemoryCache = "HzMemoryCache";
-            public const string HzCacheMemoryLocker = "HzCacheMemoryLocker"; 
+            public const string HzCacheMemoryLocker = "HzCacheMemoryLocker";
             public const string RedisBackedHzCache = "RedisBackedHzCache";
             public const string Redis = "RedisCache";
         }
