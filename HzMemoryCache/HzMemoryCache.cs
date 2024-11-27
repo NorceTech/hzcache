@@ -5,11 +5,13 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reactive.Concurrency;
+using System.Reactive.Joins;
 using System.Reactive.Linq;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
+using HzCache.Diagnostics;
 using Microsoft.Extensions.Logging;
 
 namespace HzCache
@@ -47,6 +49,8 @@ namespace HzCache
 
         public void RemoveByPattern(string pattern, bool sendNotification = true)
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.RemoveByPattern, HzActivities.Area.HzMemoryCache, pattern: pattern, sendNotification: sendNotification);
+
             var myPattern = pattern;
             if (pattern[0] != '*')
             {
@@ -67,6 +71,8 @@ namespace HzCache
 
         public void EvictExpired()
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.EvictExpired, HzActivities.Area.HzMemoryCache);
+
             if (Monitor.TryEnter(cleanUpTimer)) //use the timer-object for our lock, it's local, private and instance-type, so its ok
             {
                 try
@@ -98,6 +104,8 @@ namespace HzCache
         /// </summary>
         public T? Get<T>(string key)
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Get, HzActivities.Area.HzMemoryCache);
+
             var defaultValue = default(T);
 
             if (!dictionary.TryGetValue(key, out var ttlValue))
@@ -136,6 +144,8 @@ namespace HzCache
         /// </summary>
         public void Set<T>(string key, T? value, TimeSpan ttl)
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Set, HzActivities.Area.HzMemoryCache);
+
             var v = new TTLValue(key, value, ttl, updateChecksumAndSerializeQueue, options.notificationType,
                 (tv, objectData) => NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv, objectData));
             dictionary[key] = v;
@@ -146,6 +156,8 @@ namespace HzCache
         /// </summary>
         public T? GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetOrSet, HzActivities.Area.HzMemoryCache, key: key);
+
             var value = Get<T>(key);
             if (!IsNullOrDefault(value))
             {
@@ -162,6 +174,7 @@ namespace HzCache
                 throw new Exception($"Could not acquire lock for key {key}");
             }
 
+            
             try
             {
                 value = Get<T>(key);
@@ -169,7 +182,14 @@ namespace HzCache
                 {
                     return value;
                 }
-                value = valueFactory(key);
+                using (var executeActivity =
+                       HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.ExecuteFactory,
+                           HzActivities.Area.HzMemoryCache, key: key))
+                {
+                
+                    value = valueFactory(key);
+                }
+
                 var ttlValue = new TTLValue(key, value, ttl, updateChecksumAndSerializeQueue, options.notificationType, (tv, objectData) =>
                 {
                     NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv, objectData);
@@ -191,6 +211,9 @@ namespace HzCache
 
         public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string, T>>> valueFactory, TimeSpan ttl)
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetOrSetBatch, HzActivities.Area.HzMemoryCache, key: string.Join(",",keys??new List<string>()));
+
+
             var cachedItems = keys.Select(key => new KeyValuePair<string, T?>(key, Get<T>(key)));
             var missingKeys = cachedItems.Where(kvp => IsNullOrDefault(kvp.Value)).Select(kvp => kvp.Key).ToList();
             var factoryRetrievedItems = valueFactory(missingKeys).ToDictionary(kv => kv.Key, kv => kv.Value);
@@ -306,6 +329,7 @@ namespace HzCache
 
         private async Task ProcessExpiredEviction()
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.ProcessExpiredEviction, HzActivities.Area.HzMemoryCache);
             await globalStaticLock.WaitAsync().ConfigureAwait(false);
             try
             {
@@ -316,6 +340,8 @@ namespace HzCache
 
         private bool RemoveItem(string key, CacheItemChangeType changeType, bool sendNotification, Func<string, bool>? areEqualFunc = null)
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.RemoveItem, HzActivities.Area.HzMemoryCache, key: key);
+
             var result = !(!dictionary.TryGetValue(key, out TTLValue ttlValue) || (areEqualFunc != null && areEqualFunc.Invoke(ttlValue.checksum)));
 
             if (result)
@@ -337,6 +363,8 @@ namespace HzCache
 
         private void NotifyItemChange(string key, CacheItemChangeType changeType, TTLValue ttlValue, byte[]? objectData = null, bool isPattern = false)
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.NotifyItemChange, HzActivities.Area.HzMemoryCache, key: key);
+
             options.valueChangeListener(key, changeType, ttlValue, objectData, isPattern);
         }
 

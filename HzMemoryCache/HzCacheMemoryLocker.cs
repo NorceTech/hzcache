@@ -1,6 +1,7 @@
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using HzCache.Diagnostics;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
 
@@ -35,6 +36,8 @@ namespace HzCache
 
         private SemaphoreSlim GetSemaphore(string cacheName, string cacheInstanceId, string key, ILogger? logger)
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetSemaphore, HzActivities.Area.HzCacheMemoryLocker, key: key);
+
             object? _semaphore;
 
             if (lockCache.TryGetValue(key, out _semaphore))
@@ -79,6 +82,7 @@ namespace HzCache
         public async ValueTask<object> AcquireLockAsync(string cacheName, string cacheInstanceId, string operationId, string key, TimeSpan timeout, ILogger? logger,
             CancellationToken token)
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetSemaphore, HzActivities.Area.HzCacheMemoryLocker, key: key);
             var semaphore = GetSemaphore(cacheName, cacheInstanceId, key, logger);
 
             if (logger?.IsEnabled(LogLevel.Trace) ?? false)
@@ -107,6 +111,7 @@ namespace HzCache
                         operationId, key);
                 }
             }
+            activity?.AddTag(Tags.Names.AcquiredLock, acquired);
 
             return acquired ? semaphore : null;
         }
@@ -114,6 +119,8 @@ namespace HzCache
         /// <inheritdoc />
         public object? AcquireLock(string cacheName, string cacheInstanceId, string operationId, string key, TimeSpan timeout, ILogger? logger, CancellationToken token)
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.AcquireLock, HzActivities.Area.HzCacheMemoryLocker, key: key);
+
             var semaphore = GetSemaphore(cacheName, cacheInstanceId, key, logger);
 
             if (logger?.IsEnabled(LogLevel.Trace) ?? false)
@@ -142,13 +149,15 @@ namespace HzCache
                         operationId, key);
                 }
             }
-
+            activity?.AddTag(Tags.Names.AcquiredLock, acquired);
             return acquired ? semaphore : null;
         }
 
         /// <inheritdoc />
         public void ReleaseLock(string cacheName, string cacheInstanceId, string operationId, string key, object? lockObj, ILogger? logger)
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.ReleaseLock, HzActivities.Area.HzCacheMemoryLocker, key: key);
+
             if (lockObj is null)
             {
                 return;
@@ -157,6 +166,7 @@ namespace HzCache
             try
             {
                 ((SemaphoreSlim)lockObj).Release();
+                activity?.AddTag(Tags.Names.ReleasedLock, true);
             }
             catch (Exception exc)
             {
@@ -166,6 +176,7 @@ namespace HzCache
                         "FUSION [N={CacheName} I={CacheInstanceId}] (O={CacheOperationId} K={CacheKey}): an error occurred while trying to release a SemaphoreSlim in the memory locker",
                         cacheName, cacheInstanceId, operationId, key);
                 }
+                activity?.AddTag(Tags.Names.ReleasedLock, false);
             }
         }
     }

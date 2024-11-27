@@ -2,7 +2,9 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reactive.Joins;
 using System.Text;
+using HzCache.Diagnostics;
 using Microsoft.Extensions.Logging;
 using StackExchange.Redis;
 using Utf8Json;
@@ -45,6 +47,7 @@ namespace HzCache
                 cleanupJobInterval = options.cleanupJobInterval,
                 valueChangeListener = (key, changeType, ttlValue, objectData, isPattern) =>
                 {
+                    using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.ValueChanged, HzActivities.Area.RedisBackedHzCache, key: key);
                     options.valueChangeListener?.Invoke(key, changeType, ttlValue, objectData, isPattern);
                     var redisChannel = new RedisChannel(options.applicationCachePrefix, RedisChannel.PatternMode.Auto);
                     var messageObject = new RedisInvalidationMessage(this.options.applicationCachePrefix, instanceId, key, ttlValue?.checksum, ttlValue?.timestampCreated,
@@ -58,8 +61,7 @@ namespace HzCache
                             try
                             {
                                 var stopwatch = Stopwatch.StartNew();
-                                redisDb.StringSet(redisKey, objectData,
-                                    TimeSpan.FromMilliseconds(ttlValue.absoluteExpireTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()));
+                                RedisSet(redisKey, objectData, ttlValue);
                                 options.logger?.LogTrace("Writing value for key {Key} in redis took {Elapsed} ms", key, stopwatch.ElapsedMilliseconds);
                             }
                             catch (Exception e)
@@ -76,7 +78,7 @@ namespace HzCache
                             if (options.useRedisAs2ndLevelCache)
                             {
                                 this.options.logger?.LogTrace("Removing keys by pattern {Pattern} in redis", key);
-                                redisDb.Execute("EVAL", $"for i, name in ipairs(redis.call(\"KEYS\", \"{redisKey}\")) do redis.call(\"UNLINK\", name); end", "0");
+                                RedisRemoveByPattern(redisKey);
                             }
                         }
                         else
@@ -87,7 +89,7 @@ namespace HzCache
                         if (options.useRedisAs2ndLevelCache)
                         {
                             this.options.logger?.LogTrace("Removing value for key {Key} in redis", key);
-                            redisDb.KeyDelete(redisKey);
+                            RedisRemove(redisKey);
                         }
                     }
                 },
@@ -112,6 +114,7 @@ namespace HzCache
             // Messages from other instances through redis.
             redis.GetSubscriber().Subscribe(options.applicationCachePrefix, (_, message) =>
             {
+                using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Subscribe, HzActivities.Area.RedisBackedHzCache);
                 var invalidationMessage = JsonSerializer.Deserialize<RedisInvalidationMessage>(message.ToString());
                 if (invalidationMessage.applicationCachePrefix != options.applicationCachePrefix)
                 {
@@ -132,38 +135,64 @@ namespace HzCache
             });
         }
 
+        private void RedisRemove(string redisKey)
+        {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.RemoveRedis, HzActivities.Area.Redis, key: redisKey);
+            redisDb.KeyDelete(redisKey);
+        }
+
+        private void RedisRemoveByPattern(string redisKey)
+        {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.RemoveByPatternRedis, HzActivities.Area.Redis, key: redisKey);
+            redisDb.Execute("EVAL", $"for i, name in ipairs(redis.call(\"KEYS\", \"{redisKey}\")) do redis.call(\"UNLINK\", name); end", "0");
+        }
+
+        private void RedisSet(string redisKey, byte[] objectData, TTLValue ttlValue)
+        {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.SetRedis, HzActivities.Area.Redis, key:redisKey);
+            redisDb.StringSet(redisKey, objectData,
+                TimeSpan.FromMilliseconds(ttlValue.absoluteExpireTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()));
+        }
+
         public void RemoveByPattern(string pattern, bool sendNotification = true)
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.RemoveByPattern, HzActivities.Area.RedisBackedHzCache, pattern: pattern,sendNotification:sendNotification);
             hzCache.RemoveByPattern(pattern, sendNotification);
         }
 
         public void EvictExpired()
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.EvictExpired, HzActivities.Area.RedisBackedHzCache);
             hzCache.EvictExpired();
         }
 
         public void Clear()
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Clear, HzActivities.Area.RedisBackedHzCache);
             hzCache.Clear();
         }
 
         public bool Remove(string key, bool sendBackplaneNotification, Func<string, bool> skipRemoveIfEqualFunc = null)
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Remove, HzActivities.Area.RedisBackedHzCache, key:key);
             return hzCache.Remove(key, sendBackplaneNotification, skipRemoveIfEqualFunc);
         }
 
         public CacheStatistics GetStatistics()
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetStatistics, HzActivities.Area.RedisBackedHzCache);
             return hzCache.GetStatistics();
         }
 
         public T Get<T>(string key)
-        {
+
+        {   
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Get, HzActivities.Area.RedisBackedHzCache, key: key); 
             var value = hzCache.Get<T>(key);
             if (value == null && options.useRedisAs2ndLevelCache)
             {
                 var stopwatch = Stopwatch.StartNew();
-                var redisValue = redisDb.StringGet(GetRedisKey(key));
+                var redisValue = GetRedisValue(key);
                 options.logger?.LogTrace("Reading value for key {Key} in redis took {Elapsed} ms", key, stopwatch.ElapsedMilliseconds);
                 if (!redisValue.IsNull)
                 {
@@ -176,18 +205,27 @@ namespace HzCache
             return value;
         }
 
+        private RedisValue GetRedisValue(string key)
+        {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetRedis, HzActivities.Area.Redis, key: key);
+            return redisDb.StringGet(GetRedisKey(key));
+        }
+
         public void Set<T>(string key, T value)
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Set, HzActivities.Area.RedisBackedHzCache, key: key);
             hzCache.Set(key, value);
         }
 
         public void Set<T>(string key, T value, TimeSpan ttl)
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Set, HzActivities.Area.RedisBackedHzCache, key: key);
             hzCache.Set(key, value, ttl);
         }
 
         public T GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetOrSet, HzActivities.Area.RedisBackedHzCache, key: key);
             return hzCache.GetOrSet(key, valueFactory, ttl, maxMsToWaitForFactory);
         }
 
@@ -198,13 +236,14 @@ namespace HzCache
 
         public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string, T>>> valueFactory, TimeSpan ttl)
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetOrSetBatch, HzActivities.Area.RedisBackedHzCache, key: string.Join(",",keys??new List<string>()));
             Func<IList<string>, List<KeyValuePair<string, T>>> redisFactory = idList =>
             {
                 // Create a list of redis keys from the list of cache keys
                 var redisKeyList = idList.Select(GetRedisKey).Select(k => new RedisKey(k)).ToArray();
 
                 // Get all values from redis, non-existing values are returned as RedisValue where HasValue == false;
-                var redisBatchResult = redisDb.StringGet(redisKeyList);
+                var redisBatchResult = RedisBatchResult<T>(redisKeyList);
 
                 // Create a list of key-value pairs from the redis key list and the redis batch result. Values not found will still have HasValue == false
                 var redisKeyValueBatchResult = redisKeyList.Select((id, i) => new KeyValuePair<string, RedisValue>(id, redisBatchResult[i])).ToList();
@@ -241,8 +280,16 @@ namespace HzCache
             return hzCache.GetOrSetBatch(keys, redisFactory, ttl);
         }
 
+        private RedisValue[] RedisBatchResult<T>(RedisKey[] redisKeyList)
+        {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetBatchRedis, HzActivities.Area.Redis);
+
+            return redisDb.StringGet(redisKeyList);
+        }
+
         public bool Remove(string key)
         {
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Remove, HzActivities.Area.RedisBackedHzCache, key: key);
             return hzCache.Remove(key);
         }
 

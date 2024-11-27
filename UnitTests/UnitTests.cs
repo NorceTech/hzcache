@@ -38,9 +38,11 @@ namespace UnitTests
                             case CacheItemChangeType.AddOrUpdate:
                                 addOrUpdates++;
                                 break;
+
                             case CacheItemChangeType.Expire:
                                 expires++;
                                 break;
+
                             case CacheItemChangeType.Remove:
                                 removals++;
                                 break;
@@ -109,7 +111,7 @@ namespace UnitTests
         [TestMethod]
         public async Task TestGetSetCleanup()
         {
-            var cache = new HzMemoryCache(new HzCacheOptions {cleanupJobInterval = 200});
+            var cache = new HzMemoryCache(new HzCacheOptions { cleanupJobInterval = 200 });
             cache.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
             var v = cache.Get<MockObject>("42");
             Assert.IsTrue(v != null);
@@ -125,7 +127,7 @@ namespace UnitTests
             var list = new List<HzMemoryCache>();
             for (var i = 0; i < 20; i++)
             {
-                var cache = new HzMemoryCache(new HzCacheOptions {cleanupJobInterval = 200});
+                var cache = new HzMemoryCache(new HzCacheOptions { cleanupJobInterval = 200 });
                 cache.Set("42", new MockObject(42), TimeSpan.FromMilliseconds(100));
                 list.Add(cache);
             }
@@ -323,8 +325,6 @@ namespace UnitTests
             Assert.AreEqual(x?.num, 1024);
         }
 
-
-
         [TestMethod]
         public void TestNullValue()
         {
@@ -336,7 +336,7 @@ namespace UnitTests
         [TestMethod]
         public async Task TestLRUPolicy()
         {
-            var cache = new HzMemoryCache(new HzCacheOptions {evictionPolicy = EvictionPolicy.LRU, cleanupJobInterval = 50});
+            var cache = new HzMemoryCache(new HzCacheOptions { evictionPolicy = EvictionPolicy.LRU, cleanupJobInterval = 50 });
             cache.Set("key", new MockObject(1), TimeSpan.FromMilliseconds(120));
             Assert.IsNotNull(cache.Get<MockObject>("key"));
             await Task.Delay(100);
@@ -351,7 +351,7 @@ namespace UnitTests
         [TestCategory("Integration")]
         public async Task TestRedisBatchGet()
         {
-            var cache = new HzMemoryCache(new HzCacheOptions {evictionPolicy = EvictionPolicy.FIFO, cleanupJobInterval = 50});
+            var cache = new HzMemoryCache(new HzCacheOptions { evictionPolicy = EvictionPolicy.FIFO, cleanupJobInterval = 50 });
 
             for (var i = 0; i < 10; i++)
             {
@@ -382,11 +382,10 @@ namespace UnitTests
             }
         }
 
-
         [TestMethod]
         public async Task TestFIFOPolicy()
         {
-            var cache = new HzMemoryCache(new HzCacheOptions {evictionPolicy = EvictionPolicy.FIFO, cleanupJobInterval = 50});
+            var cache = new HzMemoryCache(new HzCacheOptions { evictionPolicy = EvictionPolicy.FIFO, cleanupJobInterval = 50 });
             cache.Set("key", new MockObject(1), TimeSpan.FromMilliseconds(220));
             await Task.Delay(100);
             Assert.IsNotNull(cache.Get<MockObject>("key"));
