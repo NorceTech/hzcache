@@ -1,12 +1,11 @@
-﻿using System;
+﻿using HzCache.Diagnostics;
+using Microsoft.Extensions.Logging;
+using StackExchange.Redis;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Reactive.Joins;
 using System.Text;
-using HzCache.Diagnostics;
-using Microsoft.Extensions.Logging;
-using StackExchange.Redis;
 using Utf8Json;
 
 namespace HzCache
@@ -19,6 +18,8 @@ namespace HzCache
 
     public partial class RedisBackedHzCache : IDetailedHzCache
     {
+        public IDatabase Database => redisDb;
+
         private readonly HzMemoryCache hzCache;
         private readonly string instanceId = Guid.NewGuid().ToString();
         private readonly RedisBackedHzCacheOptions options;
@@ -52,7 +53,8 @@ namespace HzCache
                     var redisChannel = new RedisChannel(options.applicationCachePrefix, RedisChannel.PatternMode.Auto);
                     var messageObject = new RedisInvalidationMessage(this.options.applicationCachePrefix, instanceId, key, ttlValue?.checksum, ttlValue?.timestampCreated,
                         isPattern);
-                    redis.GetSubscriber().PublishAsync(redisChannel, new RedisValue(JsonSerializer.ToJsonString(messageObject)));
+
+                    redis.GetSubscriber().Publish(redisChannel, new RedisValue(JsonSerializer.ToJsonString(messageObject)));
                     var redisKey = GetRedisKey(key);
                     if (changeType == CacheItemChangeType.AddOrUpdate)
                     {
