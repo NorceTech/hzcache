@@ -54,8 +54,7 @@ namespace HzCache
                     var messageObject = new RedisInvalidationMessage(this.options.applicationCachePrefix, instanceId, key, ttlValue?.checksum, ttlValue?.timestampCreated,
                         isPattern);
 
-                    // Async method not awaited, is this a problem?
-                    redis.GetSubscriber().PublishAsync(redisChannel, new RedisValue(JsonSerializer.ToJsonString(messageObject)));
+                    redis.GetSubscriber().Publish(redisChannel, new RedisValue(JsonSerializer.ToJsonString(messageObject)));
                     var redisKey = GetRedisKey(key);
                     if (changeType == CacheItemChangeType.AddOrUpdate)
                     {
