@@ -14,6 +14,8 @@ namespace RedisIDistributedCache
 
     public class RedisIDistributedCache : IDistributedCache
     {
+        public IDatabase Database => redis;
+
         private readonly RedisIDistributedCacheOptions options;
         private readonly IDatabase redis;
 
