@@ -16,13 +16,14 @@ namespace HzCache
         private int tickCountWhenToKill;
         private int ttlInMs;
         public object? value;
+        private const int CompressionThreshold = 1048576;
 
         private TTLValue()
         {
         }
 
         public TTLValue(string key, object? value, TimeSpan ttl, IPropagatorBlock<TTLValue, IList<TTLValue>> checksumAndNotifyQueue, NotificationType notificationType,
-            Action<TTLValue, byte[]?>? postCompletionCallback)
+            Action<TTLValue, byte[]?>? postCompletionCallback, bool compressionEnabled)
         {
             timestampCreated = DateTimeOffset.Now.ToUnixTimeMilliseconds();
             this.value = value;
@@ -39,7 +40,7 @@ namespace HzCache
                         checksumAndNotifyQueue.SendAsync(this);
                         break;
                     case NotificationType.Sync:
-                        UpdateChecksum();
+                        UpdateChecksum(compressionEnabled);
                         break;
                 }
             }
@@ -76,13 +77,14 @@ namespace HzCache
         public static TTLValue FromRedisValue<T>(byte[] compressedData)
         {
             var redisValue = JsonSerializer.Deserialize<TTLRedisValue>(compressedData);
-            using Stream valueStream = new MemoryStream(false ? Decompress(redisValue.valueJson) : redisValue.valueJson);
+            using Stream valueStream = new MemoryStream(redisValue.compressed ? Decompress(redisValue.valueJson) : redisValue.valueJson);
+            var value = JsonSerializer.Deserialize<T>(valueStream);
             return new TTLValue
             {
                 checksum = redisValue.checksum,
                 key = redisValue.key,
                 ttlInMs = redisValue.ttlInMs,
-                value = JsonSerializer.Deserialize<T>(valueStream),
+                value = value,
                 sizeInBytes = redisValue.valueJson.Length,
                 timestampCreated = redisValue.timestampCreated,
                 tickCountWhenToKill = redisValue.tickCountWhenToKill,
@@ -90,17 +92,19 @@ namespace HzCache
             };
         }
 
-        public static async Task<TTLValue> FromRedisValueAsync<T>(byte[] compressedData)
+        public static async Task<TTLValue> FromRedisValueAsync<T>(byte[] data)
         {
-            using Stream stream = new MemoryStream(compressedData);
+            using Stream stream = new MemoryStream(data);
             var redisValue = await JsonSerializer.DeserializeAsync<TTLRedisValue>(stream);
-            using Stream valueStream = new MemoryStream(false ? Decompress(redisValue.valueJson) : redisValue.valueJson);
+            using Stream valueStream = new MemoryStream(redisValue.compressed ? Decompress(redisValue.valueJson) : redisValue.valueJson);
+            valueStream.Seek(0, SeekOrigin.Begin);
+            var value = await JsonSerializer.DeserializeAsync<T>(valueStream);
             return new TTLValue
             {
                 checksum = redisValue.checksum,
                 key = redisValue.key,
                 ttlInMs = redisValue.ttlInMs,
-                value = await JsonSerializer.DeserializeAsync<T>(valueStream),
+                value = value,
                 sizeInBytes = redisValue.valueJson.Length,
                 timestampCreated = redisValue.timestampCreated,
                 tickCountWhenToKill = redisValue.tickCountWhenToKill,
@@ -108,7 +112,7 @@ namespace HzCache
             };
         }
 
-        public void UpdateChecksum()
+        public void UpdateChecksum(bool compressionEnabled)
         {
             using var md5 = MD5.Create();
             var valueJson = JsonSerializer.Serialize(value);
@@ -116,13 +120,14 @@ namespace HzCache
             sizeInBytes = valueJson.Length;
             var redisValue = new TTLRedisValue
             {
-                valueJson = false ? Compress(valueJson) : valueJson,
+                valueJson = compressionEnabled && valueJson.Length > CompressionThreshold ? Compress(valueJson) : valueJson,
                 key = key,
                 timestampCreated = timestampCreated,
                 absoluteExpireTime = absoluteExpireTime,
                 checksum = checksum,
                 ttlInMs = ttlInMs,
-                tickCountWhenToKill = tickCountWhenToKill
+                tickCountWhenToKill = tickCountWhenToKill,
+                compressed = compressionEnabled
             };
             var json = JsonSerializer.Serialize(redisValue);
             postCompletionCallback?.Invoke(this, json);
@@ -149,5 +154,6 @@ namespace HzCache
         public long timestampCreated { get; set; }
         public long absoluteExpireTime { get; set; }
         public string checksum { get; set; }
+        public bool compressed { get; set; }
     }
 }

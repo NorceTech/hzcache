@@ -128,7 +128,93 @@ namespace UnitTests
                 }
 
                 logger.LogInformation("Time from write to available on second node: {Elapsed} ms", s.ElapsedMilliseconds);
-                Assert.IsNotNull(await c2.GetAsync<Mocko>(o.key));
+                Assert.IsNotNull(await c2.GetAsync<LargeMocko>(o.key));
+            }
+
+            logger.LogInformation("Starting testinglargeretrieval");
+            await c1.SetAsync("testinglargeretrieval", new LargeMocko("testinglargeretrieval", 100000));
+
+            var stopWatch = Stopwatch.StartNew();
+            while (!await redis.GetDatabase().KeyExistsAsync("testinglargeretrieval") && stopWatch.ElapsedMilliseconds < 30000)
+            {
+                await Task.Delay(50);
+            }
+
+            stopWatch.Restart();
+            await c2.GetAsync<LargeMocko>("testinglargeretrieval");
+            stopWatch.Stop();
+            Assert.IsTrue(stopWatch.ElapsedMilliseconds < 1500);
+            logger.LogInformation("Reading from redis took {Elapsed} ms", stopWatch.ElapsedMilliseconds);
+            logger.LogInformation("c1 stats: {Stats}", c1.GetStatistics());
+            logger.LogInformation("c2 stats: {Stats}", c2.GetStatistics());
+        }
+
+                [TestMethod]
+        [TestCategory("Integration")]
+        public async Task TestLargeObjectsWithCompression()
+        {
+            var serviceProvider = new ServiceCollection()
+                .AddLogging(
+                    builder => builder
+                        .AddSimpleConsole(options =>
+                        {
+                            options.IncludeScopes = true;
+                            options.SingleLine = true;
+                            options.TimestampFormat = "HH:mm:ss ";
+                        })
+                        .SetMinimumLevel(LogLevel.Trace)
+                )
+                .BuildServiceProvider();
+
+            var factory = serviceProvider.GetService<ILoggerFactory>();
+
+            var logger = factory.CreateLogger<IntegrationTests>();
+
+            var redis = ConnectionMultiplexer.Connect("localhost");
+            var c1 = new RedisBackedHzCache(
+                new RedisBackedHzCacheOptions
+                {
+                    redisConnectionString = "localhost",
+                    applicationCachePrefix = "largeobjectstest",
+                    instanceId = "c1",
+                    useRedisAs2ndLevelCache = true,
+                    notificationType = NotificationType.Async,
+                    logger = factory.CreateLogger<RedisBackedHzCache>(),
+                    enableLObCompression = true
+                });
+            await Task.Delay(200);
+            var c2 = new RedisBackedHzCache(
+                new RedisBackedHzCacheOptions
+                {
+                    redisConnectionString = "localhost",
+                    applicationCachePrefix = "largeobjectstest",
+                    instanceId = "c2",
+                    useRedisAs2ndLevelCache = true,
+                    notificationType = NotificationType.Async,
+                    logger = factory.CreateLogger<RedisBackedHzCache>(),
+                    enableLObCompression = true
+                });
+
+            var objectList = new List<LargeMocko>();
+
+            for (var q = 1; q <= 10; q++)
+            {
+                objectList.Add(new LargeMocko("o" + q, 50000));
+            }
+
+            foreach (var o in objectList)
+            {
+                var s = Stopwatch.StartNew();
+                await c1.SetAsync(o.key, o);
+                logger.LogInformation("Time to write large object {Q} to c1: {Elapsed} ms", o.key, s.ElapsedMilliseconds);
+                s = Stopwatch.StartNew();
+                while (await c2.GetAsync<LargeMocko>(o.key) == null && s.ElapsedMilliseconds < 30000)
+                {
+                    await Task.Delay(50);
+                }
+
+                logger.LogInformation("Time from write to available on second node: {Elapsed} ms", s.ElapsedMilliseconds);
+                Assert.IsNotNull(await c2.GetAsync<LargeMocko>(o.key));
             }
 
             logger.LogInformation("Starting testinglargeretrieval");

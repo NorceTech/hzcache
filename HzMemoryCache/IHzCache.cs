@@ -86,6 +86,10 @@ namespace HzCache
         public EvictionPolicy evictionPolicy { get; set; } = EvictionPolicy.LRU;
 
         public ILogger<IHzCache>? logger { get; set; }
+        /// <summary>
+        /// Enable Large Object Compression. Compress data larger than 1Mb.
+        /// </summary>
+        public bool enableLObCompression { get; set; } = false;
     }
 
     public interface IHzCache

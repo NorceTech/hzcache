@@ -147,7 +147,7 @@ namespace HzCache
             using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Set, HzActivities.Area.HzMemoryCache);
 
             var v = new TTLValue(key, value, ttl, updateChecksumAndSerializeQueue, options.notificationType,
-                (tv, objectData) => NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv, objectData));
+                (tv, objectData) => NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv, objectData), options.enableLObCompression);
             dictionary[key] = v;
         }
 
@@ -193,7 +193,7 @@ namespace HzCache
                 var ttlValue = new TTLValue(key, value, ttl, updateChecksumAndSerializeQueue, options.notificationType, (tv, objectData) =>
                 {
                     NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv, objectData);
-                });
+                }, options.enableLObCompression);
                 dictionary[key] = ttlValue;
             }
             finally
@@ -316,7 +316,7 @@ namespace HzCache
             {
                 try
                 {
-                    ttlValues.AsParallel().ForAll(ttlValue => ttlValue.UpdateChecksum());
+                    ttlValues.AsParallel().ForAll(ttlValue => ttlValue.UpdateChecksum(this.options.enableLObCompression));
                 }
                 catch (Exception e)
                 {

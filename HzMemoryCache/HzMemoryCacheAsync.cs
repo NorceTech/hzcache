@@ -61,7 +61,7 @@ namespace HzCache
                 var ttlValue = new TTLValue(key, value, ttl, updateChecksumAndSerializeQueue, options.notificationType, (tv, objectData) =>
                 {
                     NotifyItemChange(key, CacheItemChangeType.AddOrUpdate, tv, objectData);
-                });
+                }, options.enableLObCompression);
                 dictionary[key] = ttlValue;
             }
             finally
