@@ -45,6 +45,7 @@ namespace RedisIDistributedCache
                 return null;
             }
 
+            // Deserialize can be async
             var ttlValue = JsonSerializer.Deserialize<TTLValue>(redisValue.ToString());
             return ttlValue.value;
         }
