@@ -16,22 +16,22 @@ namespace HzCache
         public async Task RemoveByPatternAsync(string pattern, bool sendNotification = true)
         {
             using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.RemoveByPattern, HzActivities.Area.RedisBackedHzCache,async:true, pattern: pattern,sendNotification:sendNotification);
-            await hzCache.RemoveByPatternAsync(pattern, sendNotification);
+            await hzCache.RemoveByPatternAsync(pattern, sendNotification).ConfigureAwait(false);
         }
 
         public async Task<T> GetAsync<T>(string key)
         {
             using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Get, HzActivities.Area.RedisBackedHzCache, async: true, key: key);
-            var value = await hzCache.GetAsync<T>(key);
+            var value = await hzCache.GetAsync<T>(key).ConfigureAwait(false);
             if (value == null && options.useRedisAs2ndLevelCache)
             {
                 var stopwatch = Stopwatch.StartNew();
-                var redisValue = await GetRedisValueAsync(key);
+                var redisValue = await GetRedisValueAsync(key).ConfigureAwait(false);
                 options.logger?.LogTrace("Redis get for key {Key} took {Elapsed} ms", key, stopwatch.ElapsedMilliseconds);
                 stopwatch.Restart();
                 if (!redisValue.IsNull)
                 {
-                    var ttlValue = await TTLValue.FromRedisValueAsync<T>(Encoding.ASCII.GetBytes(redisValue.ToString()));
+                    var ttlValue = await TTLValue.FromRedisValueAsync<T>(Encoding.ASCII.GetBytes(redisValue.ToString())).ConfigureAwait(false);
                     options.logger?.LogTrace("Deerialize {Key} took {Elapsed} ms", key, stopwatch.ElapsedMilliseconds);
                     stopwatch.Restart();
                     hzCache.SetRaw(key, ttlValue);
@@ -45,30 +45,30 @@ namespace HzCache
         private async Task<RedisValue> GetRedisValueAsync(string key)
         {
             using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetRedis, HzActivities.Area.RedisBackedHzCache, async: true, key: key);
-            return await redisDb.StringGetAsync(GetRedisKey(key));
+            return await redisDb.StringGetAsync(GetRedisKey(key)).ConfigureAwait(false);
         }
 
         public async Task SetAsync<T>(string key, T value)
         {
             using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Set, HzActivities.Area.RedisBackedHzCache, async: true, key: key);
-            await hzCache.SetAsync(key, value);
+            await hzCache.SetAsync(key, value).ConfigureAwait(false);
         }
 
         public async Task SetAsync<T>(string key, T value, TimeSpan ttl)
         {
             using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Set, HzActivities.Area.RedisBackedHzCache, async: true, key: key);
-            await hzCache.SetAsync(key, value, ttl);
+            await hzCache.SetAsync(key, value, ttl).ConfigureAwait(false);
         }
 
         public async Task<T> GetOrSetAsync<T>(string key, Func<string, Task<T>> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
             using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetOrSet, HzActivities.Area.RedisBackedHzCache, async: true, key: key);
-            return await hzCache.GetOrSetAsync(key, valueFactory, ttl, maxMsToWaitForFactory);
+            return await hzCache.GetOrSetAsync(key, valueFactory, ttl, maxMsToWaitForFactory).ConfigureAwait(false);
         }
 
         public async Task<IList<T>> GetOrSetBatchAsync<T>(IList<string> keys, Func<IList<string>, Task<List<KeyValuePair<string, T>>>> valueFactory)
         {
-            return await GetOrSetBatchAsync(keys, valueFactory, options.defaultTTL);
+            return await GetOrSetBatchAsync(keys, valueFactory, options.defaultTTL).ConfigureAwait(false);
         }
 
         public async Task<IList<T>> GetOrSetBatchAsync<T>(IList<string> keys, Func<IList<string>, Task<List<KeyValuePair<string, T>>>> valueFactory, TimeSpan ttl)
@@ -80,7 +80,7 @@ namespace HzCache
                 var redisKeyList = idList.Select(GetRedisKey).Select(k => new RedisKey(k)).ToArray();
 
                 // Get all values from redis, non-existing values are returned as RedisValue where HasValue == false;
-                var redisBatchResult = await RedisBatchResultAsync<T>(redisKeyList);
+                var redisBatchResult = await RedisBatchResultAsync<T>(redisKeyList).ConfigureAwait(false);
 
                 // Create a list of key-value pairs from the redis key list and the redis batch result. Values not found will still have HasValue == false
                 var redisKeyValueBatchResult = redisKeyList.Select((id, i) => new KeyValuePair<string, RedisValue>(id, redisBatchResult[i])).ToList();
@@ -90,7 +90,7 @@ namespace HzCache
 
                 // Call the value factory with the list of cache keys missing in redis and create a Dictionary for lookup.
                 var factoryRetrievedValues =
-                    (await valueFactory.Invoke(idsForFactoryCall.Select(CacheKeyFromRedisKey).ToList())).ToDictionary(pair => pair.Key, pair => pair.Value);
+                    (await valueFactory.Invoke(idsForFactoryCall.Select(CacheKeyFromRedisKey).ToList()).ConfigureAwait(false)).ToDictionary(pair => pair.Key, pair => pair.Value);
 
                 // Merge factory-retrieved values with the redis values
                 return redisKeyValueBatchResult.Select(kv =>
@@ -115,7 +115,7 @@ namespace HzCache
                     return new KeyValuePair<string, T>(cacheKey, value);
                 }).ToList();
             };
-            return await hzCache.GetOrSetBatchAsync(keys, redisFactory, ttl);
+            return await hzCache.GetOrSetBatchAsync(keys, redisFactory, ttl).ConfigureAwait(false);
         }
 
         private Task<RedisValue[]> RedisBatchResultAsync<T>(RedisKey[] redisKeyList)
@@ -127,13 +127,13 @@ namespace HzCache
         public async Task ClearAsync()
         {
             using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Clear, HzActivities.Area.RedisBackedHzCache, async: true);
-            await hzCache.ClearAsync();
+            await hzCache.ClearAsync().ConfigureAwait(false);
         }
 
         public async Task<bool> RemoveAsync(string key)
         {
             using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Remove, HzActivities.Area.RedisBackedHzCache, async: true, key: key);
-            return await hzCache.RemoveAsync(key);
+            return await hzCache.RemoveAsync(key).ConfigureAwait(false);
         }
     }
 }

@@ -86,6 +86,12 @@ namespace HzCache
         public EvictionPolicy evictionPolicy { get; set; } = EvictionPolicy.LRU;
 
         public ILogger<IHzCache>? logger { get; set; }
+
+        /// <summary>
+        /// At what payload byte size should compression be performed. It's likely that small values won't have a performance
+        /// benefit of compression.
+        /// </summary>
+        public long compressionThreshold { get; set; } = Int64.MaxValue;
     }
 
     public interface IHzCache

@@ -48,10 +48,10 @@ namespace UnitTests
         public async Task TestRedisBackplaneInvalidation()
         {
             var c1 = new RedisBackedHzCache(
-                new RedisBackedHzCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1"});
+                new RedisBackedHzCacheOptions { redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1" });
             await Task.Delay(200);
             var c2 = new RedisBackedHzCache(
-                new RedisBackedHzCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2"});
+                new RedisBackedHzCacheOptions { redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2" });
 
             Console.WriteLine("Adding 1 to c1");
             await c1.SetAsync("1", new Mocko(1));
@@ -69,16 +69,16 @@ namespace UnitTests
         [TestCategory("Integration")]
         public async Task TestLargeObjects()
         {
+            var totalStopWatch = Stopwatch.StartNew();
             var serviceProvider = new ServiceCollection()
-                .AddLogging(
-                    builder => builder
-                        .AddSimpleConsole(options =>
-                        {
-                            options.IncludeScopes = true;
-                            options.SingleLine = true;
-                            options.TimestampFormat = "HH:mm:ss ";
-                        })
-                        .SetMinimumLevel(LogLevel.Trace)
+                .AddLogging(builder => builder
+                    .AddSimpleConsole(options =>
+                    {
+                        options.IncludeScopes = true;
+                        options.SingleLine = true;
+                        options.TimestampFormat = "HH:mm:ss ";
+                    })
+                    .SetMinimumLevel(LogLevel.Trace)
                 )
                 .BuildServiceProvider();
 
@@ -128,7 +128,7 @@ namespace UnitTests
                 }
 
                 logger.LogInformation("Time from write to available on second node: {Elapsed} ms", s.ElapsedMilliseconds);
-                Assert.IsNotNull(await c2.GetAsync<Mocko>(o.key));
+                Assert.IsNotNull(await c2.GetAsync<LargeMocko>(o.key));
             }
 
             logger.LogInformation("Starting testinglargeretrieval");
@@ -147,6 +147,94 @@ namespace UnitTests
             logger.LogInformation("Reading from redis took {Elapsed} ms", stopWatch.ElapsedMilliseconds);
             logger.LogInformation("c1 stats: {Stats}", c1.GetStatistics());
             logger.LogInformation("c2 stats: {Stats}", c2.GetStatistics());
+            logger.LogInformation("Total time {TotalTime}", totalStopWatch.ElapsedMilliseconds);
+        }
+
+        [TestMethod]
+        [TestCategory("Integration")]
+        public async Task TestLargeObjectsWithCompression()
+        {
+            var totalStopWatch = Stopwatch.StartNew();
+            var serviceProvider = new ServiceCollection()
+                .AddLogging(builder => builder
+                    .AddSimpleConsole(options =>
+                    {
+                        options.IncludeScopes = true;
+                        options.SingleLine = true;
+                        options.TimestampFormat = "HH:mm:ss ";
+                    })
+                    .SetMinimumLevel(LogLevel.Trace)
+                )
+                .BuildServiceProvider();
+
+            var factory = serviceProvider.GetService<ILoggerFactory>();
+
+            var logger = factory.CreateLogger<IntegrationTests>();
+
+            var redis = ConnectionMultiplexer.Connect("localhost");
+            var c1 = new RedisBackedHzCache(
+                new RedisBackedHzCacheOptions
+                {
+                    redisConnectionString = "localhost",
+                    applicationCachePrefix = "largeobjectstest_compression",
+                    instanceId = "c1",
+                    useRedisAs2ndLevelCache = true,
+                    notificationType = NotificationType.Async,
+                    logger = factory.CreateLogger<RedisBackedHzCache>(),
+                    compressionThreshold = 0
+                });
+            await Task.Delay(200);
+            var c2 = new RedisBackedHzCache(
+                new RedisBackedHzCacheOptions
+                {
+                    redisConnectionString = "localhost",
+                    applicationCachePrefix = "largeobjectstest_compression",
+                    instanceId = "c2",
+                    useRedisAs2ndLevelCache = true,
+                    notificationType = NotificationType.Async,
+                    logger = factory.CreateLogger<RedisBackedHzCache>(),
+                    compressionThreshold = 0
+                });
+
+            var objectList = new List<LargeMocko>();
+
+            for (var q = 1; q <= 10; q++)
+            {
+                objectList.Add(new LargeMocko("o" + q, 50000));
+            }
+
+            foreach (var o in objectList)
+            {
+                var s = Stopwatch.StartNew();
+                await c1.SetAsync(o.key, o);
+                logger.LogInformation("Time to write large object {Q} to c1: {Elapsed} ms", o.key, s.ElapsedMilliseconds);
+                s = Stopwatch.StartNew();
+                while (await c2.GetAsync<LargeMocko>(o.key) == null && s.ElapsedMilliseconds < 30000)
+                {
+                    await Task.Delay(50);
+                }
+
+                logger.LogInformation("Time from write to available on second node: {Elapsed} ms", s.ElapsedMilliseconds);
+                Assert.IsNotNull(await c2.GetAsync<LargeMocko>(o.key));
+            }
+
+            logger.LogInformation("Starting testinglargeretrieval");
+            await c1.SetAsync("testinglargeretrieval", new LargeMocko("testinglargeretrieval", 100000));
+
+            var stopWatch = Stopwatch.StartNew();
+            while (!await redis.GetDatabase().KeyExistsAsync("testinglargeretrieval") && stopWatch.ElapsedMilliseconds < 30000)
+            {
+                await Task.Delay(50);
+            }
+
+            stopWatch.Restart();
+            await c2.GetAsync<LargeMocko>("testinglargeretrieval");
+            stopWatch.Stop();
+            Assert.IsTrue(stopWatch.ElapsedMilliseconds < 1500);
+            logger.LogInformation("Reading from redis took {Elapsed} ms", stopWatch.ElapsedMilliseconds);
+            logger.LogInformation("c1 stats: {Stats}", c1.GetStatistics());
+            logger.LogInformation("c2 stats: {Stats}", c2.GetStatistics());
+            logger.LogInformation("Total time {TotalTime}", totalStopWatch.ElapsedMilliseconds);
         }
 
 
@@ -156,10 +244,10 @@ namespace UnitTests
         {
             var redis = ConnectionMultiplexer.Connect("localhost");
             var c1 = new RedisBackedHzCache(
-                new RedisBackedHzCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1"});
+                new RedisBackedHzCacheOptions { redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1" });
             await Task.Delay(200);
             var c2 = new RedisBackedHzCache(
-                new RedisBackedHzCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2"});
+                new RedisBackedHzCacheOptions { redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2" });
 
             Console.WriteLine("Adding 1 to c1");
             await c1.SetAsync("1", new Mocko(1));
@@ -182,10 +270,10 @@ namespace UnitTests
         public async Task TestRedisGet()
         {
             var c1 = new RedisBackedHzCache(
-                new RedisBackedHzCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1", useRedisAs2ndLevelCache = true});
+                new RedisBackedHzCacheOptions { redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1", useRedisAs2ndLevelCache = true });
             await Task.Delay(200);
             var c2 = new RedisBackedHzCache(
-                new RedisBackedHzCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2", useRedisAs2ndLevelCache = true});
+                new RedisBackedHzCacheOptions { redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2", useRedisAs2ndLevelCache = true });
 
             Console.WriteLine("Adding 1 to c1");
             await c1.SetAsync("1", new Mocko(10));
@@ -199,10 +287,10 @@ namespace UnitTests
         public async Task TestRedisGetOrSet()
         {
             var c1 = new RedisBackedHzCache(
-                new RedisBackedHzCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1", useRedisAs2ndLevelCache = true});
+                new RedisBackedHzCacheOptions { redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1", useRedisAs2ndLevelCache = true });
             await Task.Delay(200);
             var c2 = new RedisBackedHzCache(
-                new RedisBackedHzCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2", useRedisAs2ndLevelCache = true});
+                new RedisBackedHzCacheOptions { redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2", useRedisAs2ndLevelCache = true });
 
             Console.WriteLine("Adding 1 to c1");
             var v1 = c1.GetOrSet("1", _ => new Mocko(10), TimeSpan.FromMinutes(1));
@@ -221,10 +309,10 @@ namespace UnitTests
         {
             var redis = ConnectionMultiplexer.Connect("localhost");
             var c1 = new RedisBackedHzCache(
-                new RedisBackedHzCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1"});
+                new RedisBackedHzCacheOptions { redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1" });
             await Task.Delay(200);
             var c2 = new RedisBackedHzCache(
-                new RedisBackedHzCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2"});
+                new RedisBackedHzCacheOptions { redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2" });
 
             Console.WriteLine("Adding 1 to c1");
             await c1.SetAsync("1", new Mocko(1));
@@ -291,10 +379,10 @@ namespace UnitTests
         {
             var redis = ConnectionMultiplexer.Connect("localhost");
             var c1 = new RedisBackedHzCache(
-                new RedisBackedHzCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1"});
+                new RedisBackedHzCacheOptions { redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c1" });
             await Task.Delay(200);
             var c2 = new RedisBackedHzCache(
-                new RedisBackedHzCacheOptions {redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2"});
+                new RedisBackedHzCacheOptions { redisConnectionString = "localhost", applicationCachePrefix = "test", instanceId = "c2" });
 
             await c1.SetAsync("11", new Mocko(11));
             await c1.SetAsync("12", new Mocko(12));

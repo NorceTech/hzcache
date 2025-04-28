@@ -46,6 +46,7 @@ namespace HzCache
                 evictionPolicy = options.evictionPolicy,
                 notificationType = options.notificationType,
                 cleanupJobInterval = options.cleanupJobInterval,
+                compressionThreshold = options.compressionThreshold,
                 valueChangeListener = (key, changeType, ttlValue, objectData, isPattern) =>
                 {
                     using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.ValueChanged, HzActivities.Area.RedisBackedHzCache, key: key);
