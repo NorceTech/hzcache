@@ -94,10 +94,10 @@ namespace HzCache
         public static async Task<TTLValue> FromRedisValueAsync<T>(byte[] data)
         {
             using Stream stream = new MemoryStream(data);
-            var redisValue = await JsonSerializer.DeserializeAsync<TTLRedisValue>(stream);
+            var redisValue = await JsonSerializer.DeserializeAsync<TTLRedisValue>(stream).ConfigureAwait(false);
             using Stream valueStream = new MemoryStream(redisValue.compressed ? Decompress(redisValue.valueJson) : redisValue.valueJson);
             valueStream.Seek(0, SeekOrigin.Begin);
-            var value = await JsonSerializer.DeserializeAsync<T>(valueStream);
+            var value = await JsonSerializer.DeserializeAsync<T>(valueStream).ConfigureAwait(false);
             return new TTLValue
             {
                 checksum = redisValue.checksum,

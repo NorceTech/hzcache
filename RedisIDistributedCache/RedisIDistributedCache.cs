@@ -39,7 +39,7 @@ namespace RedisIDistributedCache
 
         public async Task<byte[]> GetAsync(string key, CancellationToken token = new())
         {
-            var redisValue = await redis.StringGetAsync(key);
+            var redisValue = await redis.StringGetAsync(key).ConfigureAwait(false);
             if (!redisValue.HasValue)
             {
                 return null;
@@ -58,7 +58,9 @@ namespace RedisIDistributedCache
         public async Task SetAsync(string key, byte[] value, DistributedCacheEntryOptions cacheOptions, CancellationToken token = new())
         {
             var ttlValue = new TTLValue {value = value, slidingExpiration = cacheOptions.SlidingExpiration?.TotalMilliseconds ?? 0};
-            await redis.StringSetAsync(key, JsonSerializer.Serialize(ttlValue), cacheOptions.AbsoluteExpirationRelativeToNow);
+
+            // Serialize can be async
+            await redis.StringSetAsync(key, JsonSerializer.Serialize(ttlValue), cacheOptions.AbsoluteExpirationRelativeToNow).ConfigureAwait(false);
         }
 
         public void Refresh(string key)
@@ -75,14 +77,15 @@ namespace RedisIDistributedCache
 
         public async Task RefreshAsync(string key, CancellationToken token = new())
         {
-            var redisValue = await redis.StringGetAsync(key);
+            var redisValue = await redis.StringGetAsync(key).ConfigureAwait(false);
             if (!redisValue.HasValue)
             {
                 return;
             }
 
+            // Deserialize can be async
             var ttlValue = JsonSerializer.Deserialize<TTLValue>(redisValue.ToString());
-            await SetAsync(key, ttlValue.value, new DistributedCacheEntryOptions {SlidingExpiration = TimeSpan.FromMilliseconds(ttlValue.slidingExpiration)}, token);
+            await SetAsync(key, ttlValue.value, new DistributedCacheEntryOptions {SlidingExpiration = TimeSpan.FromMilliseconds(ttlValue.slidingExpiration)}, token).ConfigureAwait(false);
         }
 
         public void Remove(string key)
@@ -92,7 +95,7 @@ namespace RedisIDistributedCache
 
         public async Task RemoveAsync(string key, CancellationToken token = new())
         {
-            await redis.KeyDeleteAsync(key);
+            await redis.KeyDeleteAsync(key).ConfigureAwait(false);
         }
     }
 }

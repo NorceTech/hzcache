@@ -36,7 +36,7 @@ namespace HzCache
             options.logger?.LogDebug("Cache miss for key {Key}, calling value factory", key);
 
             var factoryLock = await memoryLocker.AcquireLockAsync(options.applicationCachePrefix, options.instanceId, "GET", key, TimeSpan.FromMilliseconds(maxMsToWaitForFactory),
-                options.logger, CancellationToken.None);
+                options.logger, CancellationToken.None).ConfigureAwait(false);
             if (factoryLock is null)
             {
                 options.logger?.LogDebug("Could not acquire lock for key {Key}, returning default value", key);
@@ -55,7 +55,7 @@ namespace HzCache
                        HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.ExecuteFactory,
                            HzActivities.Area.HzMemoryCache,async:true, key: key))
                 {
-                    value = await valueFactory(key);
+                    value = await valueFactory(key).ConfigureAwait(false);
                 }
 
                 var ttlValue = new TTLValue(key, value, ttl, updateChecksumAndSerializeQueue, options.notificationType, (tv, objectData) =>
@@ -75,7 +75,7 @@ namespace HzCache
 
         public async Task<IList<T>> GetOrSetBatchAsync<T>(IList<string> keys, Func<IList<string>, Task<List<KeyValuePair<string, T>>>> valueFactory)
         {
-            return await GetOrSetBatchAsync(keys, valueFactory, options.defaultTTL);
+            return await GetOrSetBatchAsync(keys, valueFactory, options.defaultTTL).ConfigureAwait(false);
         }
 
         public async Task<IList<T>> GetOrSetBatchAsync<T>(IList<string> keys, Func<IList<string>, Task<List<KeyValuePair<string, T>>>> valueFactory, TimeSpan ttl)
@@ -90,7 +90,7 @@ namespace HzCache
                        HzActivities.Area.HzMemoryCache, key: string.Join(",", missingKeys ?? new List<string>())))
             {
                 factoryRetrievedItems =
-                    (await valueFactory(missingKeys)).ToDictionary(kv => kv.Key, kv => kv.Value);
+                    (await valueFactory(missingKeys).ConfigureAwait(false)).ToDictionary(kv => kv.Key, kv => kv.Value);
             }
 
             return cachedItems.Select(kv =>
@@ -125,7 +125,7 @@ namespace HzCache
         public async Task<bool> RemoveAsync(string key)
         {
             using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Remove, HzActivities.Area.HzMemoryCache, async: true, key: key);
-            return await RemoveAsync(key, options.notificationType != NotificationType.None);
+            return await RemoveAsync(key, options.notificationType != NotificationType.None).ConfigureAwait(false);
         }
 
         public async Task RemoveByPatternAsync(string pattern, bool sendNotification = true)
@@ -141,7 +141,7 @@ namespace HzCache
             var victims = dictionary.Keys.Where(k => re.IsMatch(k)).ToList();
             victims.AsParallel().ForAll(async key =>
             {
-                await RemoveItemAsync(key, CacheItemChangeType.Remove, false);
+                await RemoveItemAsync(key, CacheItemChangeType.Remove, false).ConfigureAwait(false);
             });
             if (sendNotification)
             {
@@ -180,7 +180,7 @@ namespace HzCache
         public async Task<bool> RemoveAsync(string key, bool sendBackplaneNotification = true, Func<string, bool>? skipRemoveIfEqualFunc = null)
         {
             using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Remove, HzActivities.Area.HzMemoryCache, async: true, key: key);
-            return await RemoveItemAsync(key, CacheItemChangeType.Remove, sendBackplaneNotification, skipRemoveIfEqualFunc);
+            return await RemoveItemAsync(key, CacheItemChangeType.Remove, sendBackplaneNotification, skipRemoveIfEqualFunc).ConfigureAwait(false);
         }
 
         private async Task<bool> RemoveItemAsync(string key, CacheItemChangeType changeType, bool sendNotification, Func<string, bool>? areEqualFunc = null)
