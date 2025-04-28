@@ -16,14 +16,13 @@ namespace HzCache
         private int tickCountWhenToKill;
         private int ttlInMs;
         public object? value;
-        private const int CompressionThreshold = 1048576;
 
         private TTLValue()
         {
         }
 
         public TTLValue(string key, object? value, TimeSpan ttl, IPropagatorBlock<TTLValue, IList<TTLValue>> checksumAndNotifyQueue, NotificationType notificationType,
-            Action<TTLValue, byte[]?>? postCompletionCallback, bool compressionEnabled)
+            Action<TTLValue, byte[]?>? postCompletionCallback, long compressionThreshold)
         {
             timestampCreated = DateTimeOffset.Now.ToUnixTimeMilliseconds();
             this.value = value;
@@ -40,7 +39,7 @@ namespace HzCache
                         checksumAndNotifyQueue.SendAsync(this);
                         break;
                     case NotificationType.Sync:
-                        UpdateChecksum(compressionEnabled);
+                        UpdateChecksum(compressionThreshold);
                         break;
                 }
             }
@@ -112,22 +111,23 @@ namespace HzCache
             };
         }
 
-        public void UpdateChecksum(bool compressionEnabled)
+        public void UpdateChecksum(long compressionThreshold)
         {
             using var md5 = MD5.Create();
             var valueJson = JsonSerializer.Serialize(value);
             checksum = BitConverter.ToString(md5.ComputeHash(valueJson));
             sizeInBytes = valueJson.Length;
+            var doCompress = valueJson.Length >= compressionThreshold;
             var redisValue = new TTLRedisValue
             {
-                valueJson = compressionEnabled && valueJson.Length > CompressionThreshold ? Compress(valueJson) : valueJson,
+                valueJson = doCompress ? Compress(valueJson) : valueJson,
                 key = key,
                 timestampCreated = timestampCreated,
                 absoluteExpireTime = absoluteExpireTime,
                 checksum = checksum,
                 ttlInMs = ttlInMs,
                 tickCountWhenToKill = tickCountWhenToKill,
-                compressed = compressionEnabled
+                compressed = doCompress
             };
             var json = JsonSerializer.Serialize(redisValue);
             postCompletionCallback?.Invoke(this, json);
