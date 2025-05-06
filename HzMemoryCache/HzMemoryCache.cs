@@ -271,11 +271,6 @@ namespace HzCache
             return GetEnumerator();
         }
 
-        private object? AcquireLock(string operation, string key)
-        {
-            return memoryLocker.AcquireLock(options.applicationCachePrefix, options.instanceId, operation, key, TimeSpan.FromSeconds(10), options.logger, CancellationToken.None);
-        }
-
         private void ReleaseLock(object? memoryLock, string? operation, string key)
         {
             memoryLocker.ReleaseLock(options.applicationCachePrefix, options.instanceId, operation, key, memoryLock, options.logger);
