@@ -18,20 +18,19 @@ namespace HzCache
 
         public Task SetAsync<T>(string key, T? value, TimeSpan ttl)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Set, HzActivities.Area.HzMemoryCache, async: true, key: key);
             Set(key, value, ttl);
             return Task.CompletedTask;
         }
 
         public async Task<T?> GetOrSetAsync<T>(string key, Func<string, Task<T>> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetOrSet, HzActivities.Area.HzMemoryCache, async: true, key: key);
-
             var value = Get<T>(key);
             if (!IsNullOrDefault(value))
             {
                 return value;
             }
+
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetOrSetCacheMiss, HzActivities.Area.HzMemoryCache, async: true, key: key);
 
             options.logger?.LogDebug("Cache miss for key {Key}, calling value factory", key);
 
@@ -151,7 +150,6 @@ namespace HzCache
 
         public async Task<T> GetAsync<T>(string key)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Get, HzActivities.Area.HzMemoryCache, async: true, key: key);
             var defaultValue = default(T);
 
             if (!dictionary.TryGetValue(key, out var ttlValue))
@@ -177,10 +175,9 @@ namespace HzCache
             return default;
         }
 
-        public async Task<bool> RemoveAsync(string key, bool sendBackplaneNotification = true, Func<string, bool>? skipRemoveIfEqualFunc = null)
+        public Task<bool> RemoveAsync(string key, bool sendBackplaneNotification = true, Func<string, bool>? skipRemoveIfEqualFunc = null)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Remove, HzActivities.Area.HzMemoryCache, async: true, key: key);
-            return await RemoveItemAsync(key, CacheItemChangeType.Remove, sendBackplaneNotification, skipRemoveIfEqualFunc).ConfigureAwait(false);
+            return RemoveItemAsync(key, CacheItemChangeType.Remove, sendBackplaneNotification, skipRemoveIfEqualFunc);
         }
 
         private async Task<bool> RemoveItemAsync(string key, CacheItemChangeType changeType, bool sendNotification, Func<string, bool>? areEqualFunc = null)

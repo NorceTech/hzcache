@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Reactive.Joins;
 using System.Text;
 using System.Threading.Tasks;
 using HzCache.Diagnostics;
@@ -13,10 +12,9 @@ namespace HzCache
 {
     public partial class RedisBackedHzCache
     {
-        public async Task RemoveByPatternAsync(string pattern, bool sendNotification = true)
+        public Task RemoveByPatternAsync(string pattern, bool sendNotification = true)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.RemoveByPattern, HzActivities.Area.RedisBackedHzCache,async:true, pattern: pattern,sendNotification:sendNotification);
-            await hzCache.RemoveByPatternAsync(pattern, sendNotification).ConfigureAwait(false);
+            return hzCache.RemoveByPatternAsync(pattern, sendNotification);
         }
 
         public async Task<T> GetAsync<T>(string key)
@@ -48,32 +46,29 @@ namespace HzCache
             return await redisDb.StringGetAsync(GetRedisKey(key)).ConfigureAwait(false);
         }
 
-        public async Task SetAsync<T>(string key, T value)
+        public Task SetAsync<T>(string key, T value)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Set, HzActivities.Area.RedisBackedHzCache, async: true, key: key);
-            await hzCache.SetAsync(key, value).ConfigureAwait(false);
+            return hzCache.SetAsync(key, value);
         }
 
-        public async Task SetAsync<T>(string key, T value, TimeSpan ttl)
+        public Task SetAsync<T>(string key, T value, TimeSpan ttl)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Set, HzActivities.Area.RedisBackedHzCache, async: true, key: key);
-            await hzCache.SetAsync(key, value, ttl).ConfigureAwait(false);
+            return hzCache.SetAsync(key, value, ttl);
         }
 
-        public async Task<T> GetOrSetAsync<T>(string key, Func<string, Task<T>> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
+        public Task<T> GetOrSetAsync<T>(string key, Func<string, Task<T>> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetOrSet, HzActivities.Area.RedisBackedHzCache, async: true, key: key);
-            return await hzCache.GetOrSetAsync(key, valueFactory, ttl, maxMsToWaitForFactory).ConfigureAwait(false);
+            return hzCache.GetOrSetAsync(key, valueFactory, ttl, maxMsToWaitForFactory);
         }
 
-        public async Task<IList<T>> GetOrSetBatchAsync<T>(IList<string> keys, Func<IList<string>, Task<List<KeyValuePair<string, T>>>> valueFactory)
+        public Task<IList<T>> GetOrSetBatchAsync<T>(IList<string> keys, Func<IList<string>, Task<List<KeyValuePair<string, T>>>> valueFactory)
         {
-            return await GetOrSetBatchAsync(keys, valueFactory, options.defaultTTL).ConfigureAwait(false);
+            return GetOrSetBatchAsync(keys, valueFactory, options.defaultTTL);
         }
 
         public async Task<IList<T>> GetOrSetBatchAsync<T>(IList<string> keys, Func<IList<string>, Task<List<KeyValuePair<string, T>>>> valueFactory, TimeSpan ttl)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetOrSetBatch, HzActivities.Area.RedisBackedHzCache, async: true, key: string.Join(",",keys??new List<string>()));
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetOrSetBatch, HzActivities.Area.RedisBackedHzCache, async: true, key: string.Join(",", keys ?? new List<string>()));
             Func<IList<string>, Task<List<KeyValuePair<string, T>>>> redisFactory = async idList =>
             {
                 // Create a list of redis keys from the list of cache keys
@@ -124,16 +119,14 @@ namespace HzCache
             return redisDb.StringGetAsync(redisKeyList);
         }
 
-        public async Task ClearAsync()
+        public Task ClearAsync()
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Clear, HzActivities.Area.RedisBackedHzCache, async: true);
-            await hzCache.ClearAsync().ConfigureAwait(false);
+            return hzCache.ClearAsync();
         }
 
-        public async Task<bool> RemoveAsync(string key)
+        public Task<bool> RemoveAsync(string key)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Remove, HzActivities.Area.RedisBackedHzCache, async: true, key: key);
-            return await hzCache.RemoveAsync(key).ConfigureAwait(false);
+            return hzCache.RemoveAsync(key);
         }
     }
 }
