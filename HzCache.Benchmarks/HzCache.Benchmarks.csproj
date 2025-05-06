@@ -9,13 +9,13 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="BenchmarkDotNet" Version="0.13.2"/>
-    <PackageReference Include="System.Runtime.Caching" Version="6.0.0"/>
+    <PackageReference Include="BenchmarkDotNet" Version="0.14.0" />
+    <PackageReference Include="System.Runtime.Caching" Version="9.0.4" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\HzMemoryCache\HzMemoryCache.csproj"/>
-    <ProjectReference Include="..\RedisBackedHzCache\RedisBackedHzCache.csproj"/>
+    <ProjectReference Include="..\HzMemoryCache\HzMemoryCache.csproj" />
+    <ProjectReference Include="..\RedisBackedHzCache\RedisBackedHzCache.csproj" />
   </ItemGroup>
 
 </Project>
