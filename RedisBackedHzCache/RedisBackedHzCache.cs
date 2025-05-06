@@ -47,6 +47,7 @@ namespace HzCache
                 notificationType = options.notificationType,
                 cleanupJobInterval = options.cleanupJobInterval,
                 compressionThreshold = options.compressionThreshold,
+                logger = options.logger,
                 valueChangeListener = (key, changeType, ttlValue, objectData, isPattern) =>
                 {
                     using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.ValueChanged, HzActivities.Area.RedisBackedHzCache, key: key);
