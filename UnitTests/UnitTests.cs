@@ -25,7 +25,6 @@ namespace UnitTests
         {
             var addOrUpdates = 0;
             var removals = 0;
-            var expires = 0;
             var cache = new HzMemoryCache(
                 new HzCacheOptions
                 {
@@ -40,7 +39,7 @@ namespace UnitTests
                                 break;
 
                             case CacheItemChangeType.Expire:
-                                expires++;
+                                // Expire should no longer send a notification
                                 break;
 
                             case CacheItemChangeType.Remove:
@@ -59,8 +58,6 @@ namespace UnitTests
             Assert.AreEqual(2, removals);
             cache.GetOrSet("m", _ => new MockObject(1), TimeSpan.FromMilliseconds(100));
             Assert.AreEqual(3, addOrUpdates);
-            await Task.Delay(200);
-            Assert.AreEqual(1, expires);
         }
 
         [TestMethod]

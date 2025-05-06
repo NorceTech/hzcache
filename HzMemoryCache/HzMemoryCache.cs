@@ -77,7 +77,7 @@ namespace HzCache
                 {
                     foreach (var p in dictionary.Where(p => p.Value.IsExpired()))
                     {
-                        RemoveItem(p.Key, CacheItemChangeType.Expire, true);
+                        RemoveItem(p.Key, CacheItemChangeType.Expire, false);
                     }
                 }
                 finally
