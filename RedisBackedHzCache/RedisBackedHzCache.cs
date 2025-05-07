@@ -118,7 +118,6 @@ namespace HzCache
             // Messages from other instances through redis.
             redis.GetSubscriber().Subscribe(options.applicationCachePrefix, (_, message) =>
             {
-                using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Subscribe, HzActivities.Area.RedisBackedHzCache);
                 var invalidationMessage = JsonSerializer.Deserialize<RedisInvalidationMessage>(message.ToString());
                 if (invalidationMessage.applicationCachePrefix != options.applicationCachePrefix)
                 {

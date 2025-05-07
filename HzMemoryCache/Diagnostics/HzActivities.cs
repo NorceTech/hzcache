@@ -25,7 +25,6 @@ namespace HzCache.Diagnostics
             public const string ExecuteFactory = "execute factory";
 
             public const string NotifyItemChange = "notify item change";
-            public const string Subscribe = "subscribe";
             public const string ValueChanged = "value changed";
             public const string EvictExpired = "evict expired";
             public const string ProcessExpiredEviction = "process expired eviction";
