@@ -42,7 +42,6 @@ namespace HzCache
 
         private async Task<RedisValue> GetRedisValueAsync(string key)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetRedis, HzActivities.Area.RedisBackedHzCache, async: true, key: key);
             return await redisDb.StringGetAsync(GetRedisKey(key)).ConfigureAwait(false);
         }
 
@@ -115,7 +114,6 @@ namespace HzCache
 
         private Task<RedisValue[]> RedisBatchResultAsync<T>(RedisKey[] redisKeyList)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetBatchRedis, HzActivities.Area.Redis, async: true);
             return redisDb.StringGetAsync(redisKeyList);
         }
 
