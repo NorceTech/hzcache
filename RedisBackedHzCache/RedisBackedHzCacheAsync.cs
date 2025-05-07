@@ -40,9 +40,9 @@ namespace HzCache
             return value;
         }
 
-        private async Task<RedisValue> GetRedisValueAsync(string key)
+        private Task<RedisValue> GetRedisValueAsync(string key)
         {
-            return await redisDb.StringGetAsync(GetRedisKey(key)).ConfigureAwait(false);
+            return redisDb.StringGetAsync(GetRedisKey(key));
         }
 
         public Task SetAsync<T>(string key, T value)
