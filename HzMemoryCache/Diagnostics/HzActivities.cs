@@ -10,22 +10,17 @@ namespace HzCache.Diagnostics
 
         public static class Names
         {
-            public const string SetRedis = "set to redis";
             public const string Get = "get";
-            public const string GetRedis = "get from redis";
             public const string GetOrSetCacheMiss = "get or set on cache miss";
             public const string GetOrSetBatch = "get or set batch";
-            public const string GetBatchRedis = "get batch from redis";
             public const string Remove = "remove";
             public const string RemoveByPattern = "remove by pattern";
-            public const string RemoveRedis = "remove from redis";
             public const string RemoveByPatternRedis = "remove by pattern from redis";
             public const string RemoveItem = "remove item";
             public const string Clear = "clear";
             public const string ExecuteFactory = "execute factory";
 
             public const string NotifyItemChange = "notify item change";
-            public const string Subscribe = "subscribe";
             public const string ValueChanged = "value changed";
             public const string EvictExpired = "evict expired";
             public const string ProcessExpiredEviction = "process expired eviction";

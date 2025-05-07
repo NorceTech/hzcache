@@ -118,7 +118,6 @@ namespace HzCache
             // Messages from other instances through redis.
             redis.GetSubscriber().Subscribe(options.applicationCachePrefix, (_, message) =>
             {
-                using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Subscribe, HzActivities.Area.RedisBackedHzCache);
                 var invalidationMessage = JsonSerializer.Deserialize<RedisInvalidationMessage>(message.ToString());
                 if (invalidationMessage.applicationCachePrefix != options.applicationCachePrefix)
                 {
@@ -141,7 +140,6 @@ namespace HzCache
 
         private void RedisRemove(string redisKey)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.RemoveRedis, HzActivities.Area.Redis, key: redisKey);
             redisDb.KeyDelete(redisKey);
         }
 
@@ -153,9 +151,7 @@ namespace HzCache
 
         private void RedisSet(string redisKey, byte[] objectData, TTLValue ttlValue)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.SetRedis, HzActivities.Area.Redis, key:redisKey);
-            redisDb.StringSet(redisKey, objectData,
-                TimeSpan.FromMilliseconds(ttlValue.absoluteExpireTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()));
+            redisDb.StringSet(redisKey, objectData, TimeSpan.FromMilliseconds(ttlValue.absoluteExpireTime - DateTimeOffset.Now.ToUnixTimeMilliseconds()));
         }
 
         public void RemoveByPattern(string pattern, bool sendNotification = true)
@@ -205,7 +201,6 @@ namespace HzCache
 
         private RedisValue GetRedisValue(string key)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetRedis, HzActivities.Area.Redis, key: key);
             return redisDb.StringGet(GetRedisKey(key));
         }
 
@@ -277,8 +272,6 @@ namespace HzCache
 
         private RedisValue[] RedisBatchResult<T>(RedisKey[] redisKeyList)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetBatchRedis, HzActivities.Area.Redis);
-
             return redisDb.StringGet(redisKeyList);
         }
 
