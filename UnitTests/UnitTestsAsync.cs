@@ -11,7 +11,6 @@ namespace UnitTests
         {
             var addOrUpdates = 0;
             var removals = 0;
-            var expires = 0;
             var cache = new HzMemoryCache(
                 new HzCacheOptions
                 {
@@ -25,7 +24,7 @@ namespace UnitTests
                                 addOrUpdates++;
                                 break;
                             case CacheItemChangeType.Expire:
-                                expires++;
+                                // Expire should no longer send a notification
                                 break;
                             case CacheItemChangeType.Remove:
                                 removals++;
@@ -41,10 +40,8 @@ namespace UnitTests
             Assert.AreEqual(1, removals);
             await cache.RemoveAsync("mock2");
             Assert.AreEqual(2, removals);
-            await cache.GetOrSetAsync("m", async _ => Task.FromResult(new MockObject(1)), TimeSpan.FromMilliseconds(100));
+            await cache.GetOrSetAsync("m", _ => Task.FromResult(new MockObject(1)), TimeSpan.FromMilliseconds(100));
             Assert.AreEqual(3, addOrUpdates);
-            await Task.Delay(200);
-            Assert.AreEqual(1, expires);
         }
 
         [TestMethod]

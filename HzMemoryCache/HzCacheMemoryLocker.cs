@@ -68,7 +68,7 @@ namespace HzCache
                         if (logger?.IsEnabled(LogLevel.Warning) ?? false)
                         {
                             logger.Log(LogLevel.Warning, exc,
-                                "FUSION [N={CacheName} I={CacheInstanceId}] (K={CacheKey}): an error occurred while trying to dispose a SemaphoreSlim in the memory locker",
+                                "HZ [N={CacheName} I={CacheInstanceId}] (K={CacheKey}): an error occurred while trying to dispose a SemaphoreSlim in the memory locker",
                                 cacheName, cacheInstanceId, key);
                         }
                     }
@@ -87,7 +87,7 @@ namespace HzCache
 
             if (logger?.IsEnabled(LogLevel.Trace) ?? false)
             {
-                logger.Log(LogLevel.Trace, "FUSION [N={CacheName} I={CacheInstanceId}] (O={CacheOperationId} K={CacheKey}): waiting to acquire the LOCK", cacheName,
+                logger.Log(LogLevel.Trace, "HZ [N={CacheName} I={CacheInstanceId}] (O={CacheOperationId} K={CacheKey}): waiting to acquire the LOCK", cacheName,
                     cacheInstanceId, operationId, key);
             }
 
@@ -98,7 +98,7 @@ namespace HzCache
                 // LOCK ACQUIRED
                 if (logger?.IsEnabled(LogLevel.Trace) ?? false)
                 {
-                    logger.Log(LogLevel.Trace, "FUSION [N={CacheName} I={CacheInstanceId}] (O={CacheOperationId} K={CacheKey}): LOCK acquired", cacheName, cacheInstanceId,
+                    logger.Log(LogLevel.Trace, "HZ [N={CacheName} I={CacheInstanceId}] (O={CacheOperationId} K={CacheKey}): LOCK acquired", cacheName, cacheInstanceId,
                         operationId, key);
                 }
             }
@@ -107,7 +107,7 @@ namespace HzCache
                 // LOCK TIMEOUT
                 if (logger?.IsEnabled(LogLevel.Trace) ?? false)
                 {
-                    logger.Log(LogLevel.Trace, "FUSION [N={CacheName} I={CacheInstanceId}] (O={CacheOperationId} K={CacheKey}): LOCK timeout", cacheName, cacheInstanceId,
+                    logger.Log(LogLevel.Trace, "HZ [N={CacheName} I={CacheInstanceId}] (O={CacheOperationId} K={CacheKey}): LOCK timeout", cacheName, cacheInstanceId,
                         operationId, key);
                 }
             }
@@ -125,7 +125,7 @@ namespace HzCache
 
             if (logger?.IsEnabled(LogLevel.Trace) ?? false)
             {
-                logger.Log(LogLevel.Trace, "FUSION [N={CacheName} I={CacheInstanceId}] (O={CacheOperationId} K={CacheKey}): waiting to acquire the LOCK", cacheName,
+                logger.Log(LogLevel.Trace, "HZ [N={CacheName} I={CacheInstanceId}] (O={CacheOperationId} K={CacheKey}): waiting to acquire the LOCK", cacheName,
                     cacheInstanceId, operationId, key);
             }
 
@@ -136,7 +136,7 @@ namespace HzCache
                 // LOCK ACQUIRED
                 if (logger?.IsEnabled(LogLevel.Trace) ?? false)
                 {
-                    logger.Log(LogLevel.Trace, "FUSION [N={CacheName} I={CacheInstanceId}] (O={CacheOperationId} K={CacheKey}): LOCK acquired", cacheName, cacheInstanceId,
+                    logger.Log(LogLevel.Trace, "HZ [N={CacheName} I={CacheInstanceId}] (O={CacheOperationId} K={CacheKey}): LOCK acquired", cacheName, cacheInstanceId,
                         operationId, key);
                 }
             }
@@ -145,7 +145,7 @@ namespace HzCache
                 // LOCK TIMEOUT
                 if (logger?.IsEnabled(LogLevel.Trace) ?? false)
                 {
-                    logger.Log(LogLevel.Trace, "FUSION [N={CacheName} I={CacheInstanceId}] (O={CacheOperationId} K={CacheKey}): LOCK timeout", cacheName, cacheInstanceId,
+                    logger.Log(LogLevel.Trace, "HZ [N={CacheName} I={CacheInstanceId}] (O={CacheOperationId} K={CacheKey}): LOCK timeout", cacheName, cacheInstanceId,
                         operationId, key);
                 }
             }
@@ -173,7 +173,7 @@ namespace HzCache
                 if (logger?.IsEnabled(LogLevel.Warning) ?? false)
                 {
                     logger.Log(LogLevel.Warning, exc,
-                        "FUSION [N={CacheName} I={CacheInstanceId}] (O={CacheOperationId} K={CacheKey}): an error occurred while trying to release a SemaphoreSlim in the memory locker",
+                        "HZ [N={CacheName} I={CacheInstanceId}] (O={CacheOperationId} K={CacheKey}): an error occurred while trying to release a SemaphoreSlim in the memory locker",
                         cacheName, cacheInstanceId, operationId, key);
                 }
                 activity?.AddTag(Tags.Names.ReleasedLock, false);

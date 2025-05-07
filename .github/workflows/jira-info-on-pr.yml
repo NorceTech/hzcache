@@ -1,0 +1,18 @@
+name: Jira Info Automation
+
+on:
+  pull_request:
+    types:
+      - opened
+      - ready_for_review
+      - reopened      
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  add-jira-info:
+    uses: NorceTech/azure-devops-templates/.github/workflows/add-jira-info-on-pr.yml@main
+    secrets: inherit
