@@ -27,6 +27,7 @@ namespace HzCache.Diagnostics
 
             public const string AcquireLock = "acquire lock";
             public const string GetSemaphore = "get semaphore";
+            public const string WaitForSemaphore = "wait for semaphore";
             public const string ReleaseLock = "release lock";
         }
 

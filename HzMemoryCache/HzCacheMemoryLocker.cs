@@ -82,7 +82,7 @@ namespace HzCache
         public async ValueTask<object> AcquireLockAsync(string cacheName, string cacheInstanceId, string operationId, string key, TimeSpan timeout, ILogger? logger,
             CancellationToken token)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetSemaphore, HzActivities.Area.HzCacheMemoryLocker, key: key);
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.AcquireLock, HzActivities.Area.HzCacheMemoryLocker, key: key);
             var semaphore = GetSemaphore(cacheName, cacheInstanceId, key, logger);
 
             if (logger?.IsEnabled(LogLevel.Trace) ?? false)
@@ -90,8 +90,10 @@ namespace HzCache
                 logger.Log(LogLevel.Trace, "HZ [N={CacheName} I={CacheInstanceId}] (O={CacheOperationId} K={CacheKey}): waiting to acquire the LOCK", cacheName,
                     cacheInstanceId, operationId, key);
             }
-
-            var acquired = await semaphore.WaitAsync(timeout, token).ConfigureAwait(false);
+            var acquired = false;
+            using (var waitForSemaphore = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.WaitForSemaphore, HzActivities.Area.HzCacheMemoryLocker, key: key)){
+                acquired = await semaphore.WaitAsync(timeout, token).ConfigureAwait(false);
+            }
 
             if (acquired)
             {
@@ -128,8 +130,14 @@ namespace HzCache
                 logger.Log(LogLevel.Trace, "HZ [N={CacheName} I={CacheInstanceId}] (O={CacheOperationId} K={CacheKey}): waiting to acquire the LOCK", cacheName,
                     cacheInstanceId, operationId, key);
             }
+            var acquired = false;
+            using (var waitForSemaphore =
+                   HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.WaitForSemaphore,
+                       HzActivities.Area.HzCacheMemoryLocker, key: key))
+            {
 
-            var acquired = semaphore.Wait(timeout, token);
+                acquired = semaphore.Wait(timeout, token);
+            }
 
             if (acquired)
             {
