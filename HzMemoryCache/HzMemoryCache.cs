@@ -348,32 +348,44 @@ namespace HzCache
         //Remember the value we are removing from the local cache, if the same value is being removed again and again in a short time frame, we are likely experiencing cache trashing.
         private void DetectCacheTrashing(string key, string ttlValueChecksum)
         {
-            if (ttlValueChecksum == null || options.logger == null)
-                return;
-
-            TrashDetector trashDetector;
-            if (trashDetectorCache.TryGetValue(key, out trashDetector))
+            try
             {
-                trashDetectorCache.Set(key, new TrashDetector
+                if (ttlValueChecksum == null || options.logger == null)
+                    return;
+                options.logger.LogWarning($"Test DetectCacheTrashing {key}:{ttlValueChecksum}");
+                TrashDetector trashDetector;
+                if (trashDetectorCache.TryGetValue(key, out trashDetector))
                 {
-                    Checksum = ttlValueChecksum,
-                    Counter = 0
-                }, TimeSpan.FromSeconds(60));
-                return;
-            }
+                    trashDetectorCache.Set(key, new TrashDetector
+                    {
+                        Checksum = ttlValueChecksum,
+                        Counter = 0
+                    }, TimeSpan.FromSeconds(60));
+                    options.logger.LogWarning($"Set {key}");
+                    return;
+                }
 
-            if (trashDetector.Checksum == ttlValueChecksum)
-            {
-                trashDetector.Counter++;
-            }
-            else
-            {
-                trashDetectorCache.Remove(key);
-            }
+                if (trashDetector.Checksum == ttlValueChecksum)
+                {
+                    options.logger.LogWarning($"Add {key}:{trashDetector.Counter}");
+                    trashDetector.Counter++;
+                }
+                else
+                {
+                    options.logger.LogWarning($"Remove {key}");
+                    trashDetectorCache.Remove(key);
+                }
 
-            if (trashDetector.Counter == 5)
+                if (trashDetector.Counter == 5)
+                {
+                    options.logger.LogWarning(
+                        $"Cache Trashing Detected: {key} has been removed from local cache 5 times last 60s. Checksum of existing value:{ttlValueChecksum}",
+                        key, ttlValueChecksum);
+                }
+            }
+            catch (Exception e)
             {
-                options.logger.LogWarning($"Cache Trashing Detected: {key} has been removed from local cache 5 times last 60s. Checksum of existing value:{ttlValueChecksum}", key, ttlValueChecksum);
+                options.logger?.LogError(e, $"Error in DetectCacheTrashing {key}", key);
             }
         }
 
