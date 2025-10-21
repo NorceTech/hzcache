@@ -1,4 +1,8 @@
 #nullable enable
+
+using HzCache.Diagnostics;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
@@ -10,8 +14,6 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
-using HzCache.Diagnostics;
-using Microsoft.Extensions.Logging;
 
 namespace HzCache
 {
@@ -27,6 +29,8 @@ namespace HzCache
         private readonly ConcurrentDictionary<string, TTLValue> dictionary = new();
         private readonly HzCacheMemoryLocker memoryLocker = new(new HzCacheMemoryLockerOptions());
         private readonly HzCacheOptions options;
+        private readonly MemoryCache trashDetectorCache = new(new MemoryCacheOptions());
+        private readonly ILogger? logger;
 
         //IDispisable members
         private bool _disposedValue;
@@ -35,8 +39,9 @@ namespace HzCache
         ///     Initializes a new empty instance of <see cref="HzMemoryCache" />
         /// </summary>
         /// <param name="options">Options for the cache</param>
-        public HzMemoryCache(HzCacheOptions? options = null)
+        public HzMemoryCache(HzCacheOptions? options = null, ILogger? logger = null)
         {
+            this.logger = logger;
             this.options = options ?? new HzCacheOptions();
             cleanUpTimer = new Timer(s => { _ = ProcessExpiredEviction(); }, null, this.options.cleanupJobInterval, this.options.cleanupJobInterval);
             StartUpdateChecksumAndNotify();
@@ -244,7 +249,7 @@ namespace HzCache
 
         public CacheStatistics GetStatistics()
         {
-            return new CacheStatistics {Counts = Count, SizeInBytes = SizeInBytes};
+            return new CacheStatistics { Counts = Count, SizeInBytes = SizeInBytes };
         }
 
         /// <summary>
@@ -292,7 +297,7 @@ namespace HzCache
 
         private void StartUpdateChecksumAndNotify()
         {
-            var options = new DataflowLinkOptions {PropagateCompletion = true};
+            var options = new DataflowLinkOptions { PropagateCompletion = true };
             var actionBlock = new ActionBlock<IList<TTLValue>>(ttlValues =>
             {
                 try
@@ -325,6 +330,8 @@ namespace HzCache
 
             if (result)
             {
+                DetectCacheTrashing(key, ttlValue?.checksum);
+
                 result = dictionary.TryRemove(key, out ttlValue);
                 if (result)
                 {
@@ -338,6 +345,38 @@ namespace HzCache
             }
 
             return result;
+        }
+
+        //Remember the value we are removing from the local cache, if the same value is being removed again and again in a short time frame, we are likely experiencing cache trashing.
+        private void DetectCacheTrashing(string key, string ttlValueChecksum)
+        {
+            if (ttlValueChecksum == null || logger == null)
+                return;
+
+            TrashDetector trashDetector;
+            if (trashDetectorCache.TryGetValue(key, out trashDetector))
+            {
+                trashDetectorCache.Set(key, new TrashDetector
+                {
+                    Checksum = ttlValueChecksum,
+                    Counter = 0
+                }, TimeSpan.FromSeconds(60));
+                return;
+            }
+
+            if (trashDetector.Checksum == ttlValueChecksum)
+            {
+                trashDetector.Counter++;
+            }
+            else
+            {
+                trashDetectorCache.Remove(key);
+            }
+
+            if (trashDetector.Counter == 5)
+            {
+                logger.LogWarning($"Cache Trashing Detected: {key} has been removed from local cache 5 times last 60s. Checksum of existing value:{ttlValueChecksum}", key, ttlValueChecksum);
+            }
         }
 
         private void NotifyItemChange(string key, CacheItemChangeType changeType, TTLValue ttlValue, byte[]? objectData = null, bool isPattern = false)
@@ -404,5 +443,11 @@ namespace HzCache
 
             return false;
         }
+    }
+
+    public class TrashDetector
+    {
+        public string Checksum { get; set; }
+        public int Counter { get; set; }
     }
 }
