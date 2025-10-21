@@ -372,10 +372,10 @@ namespace HzCache
                     trashDetectorCache.Remove(key);
                 }
 
-                if (trashDetector.Counter > 3)
+                if (trashDetector.Counter == 3)
                 {
                     options.logger.LogWarning(
-                        $"Cache Trashing Detected: {key} has been removed from local cache 5 times last 60s. Checksum of existing value:{ttlValueChecksum}",
+                        $"Cache Trashing Detected: {key} has been removed from local cache 3 times last 60s. Checksum of existing value:{ttlValueChecksum}",
                         key, ttlValueChecksum);
                 }
             }
