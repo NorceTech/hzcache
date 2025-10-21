@@ -352,31 +352,27 @@ namespace HzCache
             {
                 if (ttlValueChecksum == null || options.logger == null)
                     return;
-                options.logger.LogWarning($"Test DetectCacheTrashing {key}:{ttlValueChecksum}");
                 TrashDetector trashDetector;
-                if (trashDetectorCache.TryGetValue(key, out trashDetector))
+                if (!trashDetectorCache.TryGetValue(key, out trashDetector))
                 {
                     trashDetectorCache.Set(key, new TrashDetector
                     {
                         Checksum = ttlValueChecksum,
                         Counter = 0
                     }, TimeSpan.FromSeconds(60));
-                    options.logger.LogWarning($"Set {key}");
                     return;
                 }
 
                 if (trashDetector.Checksum == ttlValueChecksum)
                 {
-                    options.logger.LogWarning($"Add {key}:{trashDetector.Counter}");
                     trashDetector.Counter++;
                 }
                 else
                 {
-                    options.logger.LogWarning($"Remove {key}");
                     trashDetectorCache.Remove(key);
                 }
 
-                if (trashDetector.Counter == 5)
+                if (trashDetector.Counter > 3)
                 {
                     options.logger.LogWarning(
                         $"Cache Trashing Detected: {key} has been removed from local cache 5 times last 60s. Checksum of existing value:{ttlValueChecksum}",
