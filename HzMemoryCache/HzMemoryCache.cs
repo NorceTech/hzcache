@@ -30,7 +30,6 @@ namespace HzCache
         private readonly HzCacheMemoryLocker memoryLocker = new(new HzCacheMemoryLockerOptions());
         private readonly HzCacheOptions options;
         private readonly MemoryCache trashDetectorCache = new(new MemoryCacheOptions());
-        private readonly ILogger? logger;
 
         //IDispisable members
         private bool _disposedValue;
@@ -39,9 +38,8 @@ namespace HzCache
         ///     Initializes a new empty instance of <see cref="HzMemoryCache" />
         /// </summary>
         /// <param name="options">Options for the cache</param>
-        public HzMemoryCache(HzCacheOptions? options = null, ILogger? logger = null)
+        public HzMemoryCache(HzCacheOptions? options = null)
         {
-            this.logger = logger;
             this.options = options ?? new HzCacheOptions();
             cleanUpTimer = new Timer(s => { _ = ProcessExpiredEviction(); }, null, this.options.cleanupJobInterval, this.options.cleanupJobInterval);
             StartUpdateChecksumAndNotify();
@@ -350,7 +348,7 @@ namespace HzCache
         //Remember the value we are removing from the local cache, if the same value is being removed again and again in a short time frame, we are likely experiencing cache trashing.
         private void DetectCacheTrashing(string key, string ttlValueChecksum)
         {
-            if (ttlValueChecksum == null || logger == null)
+            if (ttlValueChecksum == null || options.logger == null)
                 return;
 
             TrashDetector trashDetector;
@@ -375,7 +373,7 @@ namespace HzCache
 
             if (trashDetector.Counter == 5)
             {
-                logger.LogWarning($"Cache Trashing Detected: {key} has been removed from local cache 5 times last 60s. Checksum of existing value:{ttlValueChecksum}", key, ttlValueChecksum);
+                options.logger.LogWarning($"Cache Trashing Detected: {key} has been removed from local cache 5 times last 60s. Checksum of existing value:{ttlValueChecksum}", key, ttlValueChecksum);
             }
         }
 
