@@ -384,7 +384,7 @@ namespace HzCache
             }
             catch (Exception e)
             {
-                options.logger?.LogError(e, "Error in DetectCacheTrashing {Key}", key);
+                options.logger?.LogError(e, "Error in DetectCacheThrashing {Key}", key);
             }
         }
 
