@@ -97,7 +97,10 @@ namespace HzCache
                         }
                     }
                 },
-                defaultTTL = options.defaultTTL
+                defaultTTL = options.defaultTTL,
+                LogCacheThrashing = options.LogCacheThrashing,
+                ThrashingLimit = options.ThrashingLimit,
+                ThrashingWindow = options.ThrashingWindow,
             });
 
             if (string.IsNullOrWhiteSpace(options.redisConnectionString))
@@ -181,7 +184,7 @@ namespace HzCache
 
         public T Get<T>(string key)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Get, HzActivities.Area.RedisBackedHzCache, key: key); 
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.Get, HzActivities.Area.RedisBackedHzCache, key: key);
             var value = hzCache.Get<T>(key);
             if (value == null && options.useRedisAs2ndLevelCache)
             {
@@ -226,7 +229,7 @@ namespace HzCache
 
         public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string, T>>> valueFactory, TimeSpan ttl)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetOrSetBatch, HzActivities.Area.RedisBackedHzCache, key: string.Join(",",keys??new List<string>()));
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetOrSetBatch, HzActivities.Area.RedisBackedHzCache, key: string.Join(",", keys ?? new List<string>()));
             Func<IList<string>, List<KeyValuePair<string, T>>> redisFactory = idList =>
             {
                 // Create a list of redis keys from the list of cache keys
