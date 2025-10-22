@@ -329,7 +329,7 @@ namespace HzCache
 
             if (result)
             {
-                DetectCacheTrashing(key, ttlValue?.checksum);
+                DetectCacheThrashing(key, ttlValue?.checksum);
 
                 result = dictionary.TryRemove(key, out ttlValue);
                 if (result)
@@ -346,8 +346,10 @@ namespace HzCache
             return result;
         }
 
-        //Remember the value we are removing from the local cache, if the same value is being removed again and again in a short time frame, we are likely experiencing cache thrashing.
-        private void DetectCacheTrashing(string key, string? ttlValueChecksum)
+        // Remember the value we are removing from the local cache.
+        // If the same value is being removed again and again in a short time frame,
+        // we are likely experiencing cache trashing.
+        private void DetectCacheThrashing(string key, string? ttlValueChecksum)
         {
             try
             {
