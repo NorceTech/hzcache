@@ -3,6 +3,7 @@
 using HzCache.Diagnostics;
 using Microsoft.Extensions.Caching.Memory;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
@@ -29,7 +30,7 @@ namespace HzCache
         private readonly ConcurrentDictionary<string, TTLValue> dictionary = new();
         private readonly HzCacheMemoryLocker memoryLocker = new(new HzCacheMemoryLockerOptions());
         private readonly HzCacheOptions options;
-        private readonly MemoryCache trashDetectorCache = new(new MemoryCacheOptions());
+        private readonly MemoryCache trashingDetectorCache = new(new MemoryCacheOptions());
 
         //IDispisable members
         private bool _disposedValue;
@@ -350,38 +351,43 @@ namespace HzCache
         {
             try
             {
+                if (!options.LogCacheTrashing)
+                {
+                    return;
+                }
+
                 if (ttlValueChecksum == null || options.logger == null)
                     return;
-                TrashDetector trashDetector;
-                if (!trashDetectorCache.TryGetValue(key, out trashDetector))
+                TrashingDetector? trashingDetector;
+                if (!trashingDetectorCache.TryGetValue(key, out trashingDetector))
                 {
-                    trashDetectorCache.Set(key, new TrashDetector
+                    trashingDetectorCache.Set(key, new TrashingDetector
                     {
                         Checksum = ttlValueChecksum,
                         Counter = 0
-                    }, TimeSpan.FromSeconds(60));
+                    }, options.TrashingWindow);
                     return;
                 }
 
-                if (trashDetector.Checksum == ttlValueChecksum)
+                if (trashingDetector.Checksum == ttlValueChecksum)
                 {
-                    trashDetector.Counter++;
+                    trashingDetector.Counter++;
                 }
                 else
                 {
-                    trashDetectorCache.Remove(key);
+                    trashingDetectorCache.Remove(key);
                 }
 
-                if (trashDetector.Counter == 3)
+                if (trashingDetector.Counter >= options.TrashingLimit)
                 {
                     options.logger.LogWarning(
-                        $"Cache Trashing Detected: {key} has been removed from local cache 3 times last 60s. Checksum of existing value:{ttlValueChecksum}",
+                        "Cache Trashing Detected: {Key} has been removed from local cache 3 times last 60s. Checksum of existing value:{Checksum}",
                         key, ttlValueChecksum);
                 }
             }
             catch (Exception e)
             {
-                options.logger?.LogError(e, $"Error in DetectCacheTrashing {key}", key);
+                options.logger?.LogError(e, "Error in DetectCacheTrashing {Key}", key);
             }
         }
 
@@ -402,6 +408,7 @@ namespace HzCache
                 if (disposing)
                 {
                     cleanUpTimer.Dispose();
+                    trashingDetectorCache.Dispose();
                 }
 
                 _disposedValue = true;
@@ -449,11 +456,5 @@ namespace HzCache
 
             return false;
         }
-    }
-
-    public class TrashDetector
-    {
-        public string Checksum { get; set; }
-        public int Counter { get; set; }
     }
 }

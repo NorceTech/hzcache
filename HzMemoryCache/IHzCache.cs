@@ -1,4 +1,5 @@
 #nullable enable
+
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
@@ -28,7 +29,6 @@ namespace HzCache
     {
         Async, Sync, None
     }
-
 
     /// <summary>
     ///     The eviction policy to use for the cache.
@@ -92,6 +92,10 @@ namespace HzCache
         /// benefit of compression.
         /// </summary>
         public long compressionThreshold { get; set; } = Int64.MaxValue;
+
+        public bool LogCacheTrashing { get; set; } = false;
+        public TimeSpan TrashingWindow { get; set; } = TimeSpan.FromSeconds(60);
+        public int TrashingLimit { get; set; } = 3;
     }
 
     public interface IHzCache
@@ -182,6 +186,7 @@ namespace HzCache
         bool Remove(string key);
 
         Task ClearAsync();
+
         Task<bool> RemoveAsync(string key);
     }
 
@@ -197,7 +202,6 @@ namespace HzCache
         ///     Removes all items from the cache
         /// </summary>
         void Clear();
-
 
         /// <summary>
         ///     Tries to remove item with the specified key, also returns the object removed in an "out" var
