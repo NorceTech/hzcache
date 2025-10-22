@@ -347,7 +347,7 @@ namespace HzCache
         }
 
         //Remember the value we are removing from the local cache, if the same value is being removed again and again in a short time frame, we are likely experiencing cache trashing.
-        private void DetectCacheTrashing(string key, string ttlValueChecksum)
+        private void DetectCacheTrashing(string key, string? ttlValueChecksum)
         {
             try
             {
@@ -360,10 +360,7 @@ namespace HzCache
                     return;
                 if (!trashingDetectorCache.TryGetValue(key, out TrashingDetector? trashingDetector))
                 {
-                    trashingDetectorCache.Set(key, new TrashingDetector
-                    {
-                        Checksum = ttlValueChecksum
-                    }, options.TrashingWindow);
+                    trashingDetectorCache.Set(key, new TrashingDetector(ttlValueChecksum), options.TrashingWindow);
                     return;
                 }
 

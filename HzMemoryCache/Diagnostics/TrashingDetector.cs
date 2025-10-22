@@ -1,8 +1,8 @@
 namespace HzCache.Diagnostics
 {
-    internal class TrashingDetector
+    internal class TrashingDetector(string checksum)
     {
-        public string? Checksum { get; set; } = null;
         public int Counter { get; set; } = 0;
+        public string Checksum => checksum;
     }
 }
