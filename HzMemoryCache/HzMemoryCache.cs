@@ -358,8 +358,7 @@ namespace HzCache
 
                 if (ttlValueChecksum == null || options.logger == null)
                     return;
-                TrashingDetector? trashingDetector;
-                if (!trashingDetectorCache.TryGetValue(key, out trashingDetector))
+                if (!trashingDetectorCache.TryGetValue(key, out TrashingDetector? trashingDetector))
                 {
                     trashingDetectorCache.Set(key, new TrashingDetector
                     {
