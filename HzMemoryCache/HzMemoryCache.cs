@@ -381,8 +381,8 @@ namespace HzCache
                 if (trashingDetector.Counter >= options.TrashingLimit)
                 {
                     options.logger.LogWarning(
-                        "Cache Trashing Detected: {Key} has been removed from local cache 3 times last 60s. Checksum of existing value:{Checksum}",
-                        key, ttlValueChecksum);
+                        "Cache Trashing Detected: {Key} has been removed from local cache {TrashingLimit} times in the last {TrashingWindow}s. Checksum of existing value:{Checksum}",
+                        key, options.TrashingLimit, options.TrashingWindow.TotalSeconds, ttlValueChecksum);
                 }
             }
             catch (Exception e)
