@@ -30,7 +30,7 @@ namespace HzCache
         private readonly ConcurrentDictionary<string, TTLValue> dictionary = new();
         private readonly HzCacheMemoryLocker memoryLocker = new(new HzCacheMemoryLockerOptions());
         private readonly HzCacheOptions options;
-        private readonly MemoryCache trashingDetectorCache = new(new MemoryCacheOptions());
+        private readonly MemoryCache thrashingDetectorCache = new(new MemoryCacheOptions());
 
         //IDispisable members
         private bool _disposedValue;
@@ -346,38 +346,38 @@ namespace HzCache
             return result;
         }
 
-        //Remember the value we are removing from the local cache, if the same value is being removed again and again in a short time frame, we are likely experiencing cache trashing.
+        //Remember the value we are removing from the local cache, if the same value is being removed again and again in a short time frame, we are likely experiencing cache thrashing.
         private void DetectCacheTrashing(string key, string? ttlValueChecksum)
         {
             try
             {
-                if (!options.LogCacheTrashing)
+                if (!options.LogCacheThrashing)
                 {
                     return;
                 }
 
                 if (ttlValueChecksum == null || options.logger == null)
                     return;
-                if (!trashingDetectorCache.TryGetValue(key, out TrashingDetector? trashingDetector))
+                if (!thrashingDetectorCache.TryGetValue(key, out ThrashingDetector? thrashingDetector))
                 {
-                    trashingDetectorCache.Set(key, new TrashingDetector(ttlValueChecksum), options.TrashingWindow);
+                    thrashingDetectorCache.Set(key, new ThrashingDetector(ttlValueChecksum), options.ThrashingWindow);
                     return;
                 }
 
-                if (trashingDetector.Checksum == ttlValueChecksum)
+                if (thrashingDetector.Checksum == ttlValueChecksum)
                 {
-                    trashingDetector.Counter++;
+                    thrashingDetector.Counter++;
                 }
                 else
                 {
-                    trashingDetectorCache.Remove(key);
+                    thrashingDetectorCache.Remove(key);
                 }
 
-                if (trashingDetector.Counter == options.TrashingLimit)
+                if (thrashingDetector.Counter == options.ThrashingLimit)
                 {
                     options.logger.LogWarning(
-                        "Cache Trashing Detected: {Key} has been removed from local cache {TrashingLimit} times in the last {TrashingWindow}s. Checksum of existing value:{Checksum}",
-                        key, options.TrashingLimit, options.TrashingWindow.TotalSeconds, ttlValueChecksum);
+                        "Cache Thrashing Detected: {Key} has been removed from local cache {ThrashingLimit} times in the last {ThrashingWindow}s. Checksum of existing value:{Checksum}",
+                        key, options.ThrashingLimit, options.ThrashingWindow.TotalSeconds, ttlValueChecksum);
                 }
             }
             catch (Exception e)
@@ -403,7 +403,7 @@ namespace HzCache
                 if (disposing)
                 {
                     cleanUpTimer.Dispose();
-                    trashingDetectorCache.Dispose();
+                    thrashingDetectorCache.Dispose();
                 }
 
                 _disposedValue = true;

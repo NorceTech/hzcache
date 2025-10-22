@@ -94,19 +94,19 @@ namespace HzCache
         public long compressionThreshold { get; set; } = Int64.MaxValue;
 
         /// <summary>
-        ///     Enables logging of cache trashing events, which occur when keys are removed frequently.
+        ///     Enables logging of cache thrashing events, which occur when keys are removed frequently.
         /// </summary>
-        public bool LogCacheTrashing { get; set; } = false;
+        public bool LogCacheThrashing { get; set; } = false;
 
         /// <summary>
-        ///     The time window during which cache removals are counted for trashing detection.
+        ///     The time window during which cache removals are counted for thrashing detection.
         /// </summary>
-        public TimeSpan TrashingWindow { get; set; } = TimeSpan.FromSeconds(60);
+        public TimeSpan ThrashingWindow { get; set; } = TimeSpan.FromSeconds(60);
 
         /// <summary>
-        ///     The number of removals within <see cref="TrashingWindow"/> that triggers a cache trashing warning.
+        ///     The number of removals within <see cref="ThrashingWindow"/> that triggers a cache thrashing warning.
         /// </summary>
-        public int TrashingLimit { get; set; } = 3;
+        public int ThrashingLimit { get; set; } = 3;
     }
 
     public interface IHzCache
