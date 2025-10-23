@@ -1,4 +1,9 @@
 #nullable enable
+
+using HzCache.Diagnostics;
+using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 using System;
 using System.Collections;
 using System.Collections.Concurrent;
@@ -10,8 +15,6 @@ using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Threading.Tasks.Dataflow;
-using HzCache.Diagnostics;
-using Microsoft.Extensions.Logging;
 
 namespace HzCache
 {
@@ -27,6 +30,7 @@ namespace HzCache
         private readonly ConcurrentDictionary<string, TTLValue> dictionary = new();
         private readonly HzCacheMemoryLocker memoryLocker = new(new HzCacheMemoryLockerOptions());
         private readonly HzCacheOptions options;
+        private readonly MemoryCache thrashingDetectorCache = new(new MemoryCacheOptions());
 
         //IDispisable members
         private bool _disposedValue;
@@ -244,7 +248,7 @@ namespace HzCache
 
         public CacheStatistics GetStatistics()
         {
-            return new CacheStatistics {Counts = Count, SizeInBytes = SizeInBytes};
+            return new CacheStatistics { Counts = Count, SizeInBytes = SizeInBytes };
         }
 
         /// <summary>
@@ -292,7 +296,7 @@ namespace HzCache
 
         private void StartUpdateChecksumAndNotify()
         {
-            var options = new DataflowLinkOptions {PropagateCompletion = true};
+            var options = new DataflowLinkOptions { PropagateCompletion = true };
             var actionBlock = new ActionBlock<IList<TTLValue>>(ttlValues =>
             {
                 try
@@ -325,6 +329,8 @@ namespace HzCache
 
             if (result)
             {
+                DetectCacheThrashing(key, ttlValue?.checksum);
+
                 result = dictionary.TryRemove(key, out ttlValue);
                 if (result)
                 {
@@ -338,6 +344,48 @@ namespace HzCache
             }
 
             return result;
+        }
+
+        // Remember the value we are removing from the local cache.
+        // If the same value is being removed again and again in a short time frame,
+        // we are likely experiencing cache thrashing.
+        private void DetectCacheThrashing(string key, string? ttlValueChecksum)
+        {
+            try
+            {
+                if (!options.LogCacheThrashing)
+                {
+                    return;
+                }
+
+                if (ttlValueChecksum == null || options.logger == null)
+                    return;
+                if (!thrashingDetectorCache.TryGetValue(key, out ThrashingDetector? thrashingDetector))
+                {
+                    thrashingDetectorCache.Set(key, new ThrashingDetector(ttlValueChecksum), options.ThrashingWindow);
+                    return;
+                }
+
+                if (thrashingDetector.Checksum == ttlValueChecksum)
+                {
+                    thrashingDetector.Counter++;
+                }
+                else
+                {
+                    thrashingDetectorCache.Remove(key);
+                }
+
+                if (thrashingDetector.Counter == options.ThrashingLimit)
+                {
+                    options.logger.LogWarning(
+                        "Cache Thrashing Detected: {Key} has been removed from local cache {ThrashingLimit} times in the last {ThrashingWindow}s. Checksum of existing value:{Checksum}",
+                        key, options.ThrashingLimit, options.ThrashingWindow.TotalSeconds, ttlValueChecksum);
+                }
+            }
+            catch (Exception e)
+            {
+                options.logger?.LogError(e, "Error in DetectCacheThrashing {Key}", key);
+            }
         }
 
         private void NotifyItemChange(string key, CacheItemChangeType changeType, TTLValue ttlValue, byte[]? objectData = null, bool isPattern = false)
@@ -357,6 +405,7 @@ namespace HzCache
                 if (disposing)
                 {
                     cleanUpTimer.Dispose();
+                    thrashingDetectorCache.Dispose();
                 }
 
                 _disposedValue = true;
