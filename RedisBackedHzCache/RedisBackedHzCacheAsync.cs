@@ -57,7 +57,20 @@ namespace HzCache
 
         public Task<T> GetOrSetAsync<T>(string key, Func<string, Task<T>> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
-            return hzCache.GetOrSetAsync(key, valueFactory, ttl, maxMsToWaitForFactory);
+            var redisBackedValueFactory = new Func<string, Task<T>>(async k =>
+            {
+                var redisValue = await GetRedisValueAsync(k).ConfigureAwait(false);
+                if (!redisValue.IsNull)
+                {
+                    var ttlValue = await TTLValue.FromRedisValueAsync<T>(Encoding.ASCII.GetBytes(redisValue.ToString())).ConfigureAwait(false);
+                    hzCache.SetRaw(k, ttlValue);
+                    return (T)ttlValue.value;
+                }
+
+                return await valueFactory.Invoke(k).ConfigureAwait(false);
+            });
+
+            return hzCache.GetOrSetAsync(key, redisBackedValueFactory, ttl, maxMsToWaitForFactory);
         }
 
         public Task<IList<T>> GetOrSetBatchAsync<T>(IList<string> keys, Func<IList<string>, Task<List<KeyValuePair<string, T>>>> valueFactory)
@@ -67,7 +80,8 @@ namespace HzCache
 
         public async Task<IList<T>> GetOrSetBatchAsync<T>(IList<string> keys, Func<IList<string>, Task<List<KeyValuePair<string, T>>>> valueFactory, TimeSpan ttl)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetOrSetBatch, HzActivities.Area.RedisBackedHzCache, async: true, key: string.Join(",", keys ?? new List<string>()));
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetOrSetBatch, HzActivities.Area.RedisBackedHzCache, async: true,
+                key: string.Join(",", keys ?? new List<string>()));
             Func<IList<string>, Task<List<KeyValuePair<string, T>>>> redisFactory = async idList =>
             {
                 // Create a list of redis keys from the list of cache keys
