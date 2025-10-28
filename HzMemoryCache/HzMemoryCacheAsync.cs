@@ -52,7 +52,7 @@ namespace HzCache
 
                 using (var executeActivity =
                        HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.ExecuteFactory,
-                           HzActivities.Area.HzMemoryCache,async:true, key: key))
+                           HzActivities.Area.HzMemoryCache, async: true, key: key))
                 {
                     value = await valueFactory(key).ConfigureAwait(false);
                 }
@@ -71,7 +71,6 @@ namespace HzCache
             return value;
         }
 
-
         public async Task<IList<T>> GetOrSetBatchAsync<T>(IList<string> keys, Func<IList<string>, Task<List<KeyValuePair<string, T>>>> valueFactory)
         {
             return await GetOrSetBatchAsync(keys, valueFactory, options.defaultTTL).ConfigureAwait(false);
@@ -86,7 +85,7 @@ namespace HzCache
             Dictionary<string, T> factoryRetrievedItems;
             using (var executeActivity =
                    HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.ExecuteFactory,
-                       HzActivities.Area.HzMemoryCache, key: string.Join(",", missingKeys ?? new List<string>())))
+                       HzActivities.Area.HzMemoryCache, key: string.Join(",", missingKeys ?? new List<string>()), async: true))
             {
                 factoryRetrievedItems =
                     (await valueFactory(missingKeys).ConfigureAwait(false)).ToDictionary(kv => kv.Key, kv => kv.Value);
@@ -129,7 +128,7 @@ namespace HzCache
 
         public async Task RemoveByPatternAsync(string pattern, bool sendNotification = true)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.RemoveByPattern, HzActivities.Area.HzMemoryCache, async: true, pattern: pattern,sendNotification:sendNotification);
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.RemoveByPattern, HzActivities.Area.HzMemoryCache, async: true, pattern: pattern, sendNotification: sendNotification);
             var myPattern = pattern;
             if (pattern[0] != '*')
             {

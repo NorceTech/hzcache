@@ -82,7 +82,7 @@ namespace HzCache
         public async ValueTask<object> AcquireLockAsync(string cacheName, string cacheInstanceId, string operationId, string key, TimeSpan timeout, ILogger? logger,
             CancellationToken token)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.AcquireLock, HzActivities.Area.HzCacheMemoryLocker, key: key);
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.AcquireLock, HzActivities.Area.HzCacheMemoryLocker, key: key, async: true);
             var semaphore = GetSemaphore(cacheName, cacheInstanceId, key, logger);
 
             if (logger?.IsEnabled(LogLevel.Trace) ?? false)
@@ -91,7 +91,8 @@ namespace HzCache
                     cacheInstanceId, operationId, key);
             }
             var acquired = false;
-            using (var waitForSemaphore = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.WaitForSemaphore, HzActivities.Area.HzCacheMemoryLocker, key: key)){
+            using (var waitForSemaphore = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.WaitForSemaphore, HzActivities.Area.HzCacheMemoryLocker, key: key, async: true))
+            {
                 acquired = await semaphore.WaitAsync(timeout, token).ConfigureAwait(false);
             }
 
@@ -135,7 +136,6 @@ namespace HzCache
                    HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.WaitForSemaphore,
                        HzActivities.Area.HzCacheMemoryLocker, key: key))
             {
-
                 acquired = semaphore.Wait(timeout, token);
             }
 
