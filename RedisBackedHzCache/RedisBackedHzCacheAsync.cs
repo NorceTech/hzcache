@@ -55,22 +55,26 @@ namespace HzCache
             return hzCache.SetAsync(key, value, ttl);
         }
 
-        public Task<T> GetOrSetAsync<T>(string key, Func<string, Task<T>> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
+        public async Task<T> GetOrSetAsync<T>(string key, Func<string, Task<T>> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
-            var redisBackedValueFactory = new Func<string, Task<T>>(async k =>
+            var value = await hzCache.GetAsync<T>(key);
+            if (value != null)
             {
-                var redisValue = await GetRedisValueAsync(k).ConfigureAwait(false);
+                return value;
+            }
+
+            if (options.useRedisAs2ndLevelCache)
+            {
+                var redisValue = await GetRedisValueAsync(key);
                 if (!redisValue.IsNull)
                 {
-                    var ttlValue = await TTLValue.FromRedisValueAsync<T>(Encoding.ASCII.GetBytes(redisValue.ToString())).ConfigureAwait(false);
-                    hzCache.SetRaw(k, ttlValue);
+                    var ttlValue = await TTLValue.FromRedisValueAsync<T>(Encoding.ASCII.GetBytes(redisValue.ToString()));
+                    hzCache.SetRaw(key, ttlValue);
                     return (T)ttlValue.value;
                 }
+            }
 
-                return await valueFactory.Invoke(k).ConfigureAwait(false);
-            });
-
-            return hzCache.GetOrSetAsync(key, redisBackedValueFactory, ttl, maxMsToWaitForFactory);
+            return await hzCache.GetOrSetAsync(key, valueFactory, ttl, maxMsToWaitForFactory);
         }
 
         public Task<IList<T>> GetOrSetBatchAsync<T>(IList<string> keys, Func<IList<string>, Task<List<KeyValuePair<string, T>>>> valueFactory)

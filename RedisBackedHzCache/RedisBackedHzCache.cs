@@ -219,20 +219,24 @@ namespace HzCache
 
         public T GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
-            var redisBackedValueFactory = new Func<string, T>(k =>
+            var value = hzCache.Get<T>(key);
+            if (value != null)
             {
-                var redisValue = GetRedisValue(k);
+                return value;
+            }
+
+            if (options.useRedisAs2ndLevelCache)
+            {
+                var redisValue = GetRedisValue(key);
                 if (!redisValue.IsNull)
                 {
                     var ttlValue = TTLValue.FromRedisValue<T>(Encoding.ASCII.GetBytes(redisValue.ToString()));
-                    hzCache.SetRaw(k, ttlValue);
+                    hzCache.SetRaw(key, ttlValue);
                     return (T)ttlValue.value;
                 }
+            }
 
-                return valueFactory.Invoke(k);
-            });
-
-            return hzCache.GetOrSet(key, redisBackedValueFactory, ttl, maxMsToWaitForFactory);
+            return hzCache.GetOrSet(key, valueFactory, ttl, maxMsToWaitForFactory);
         }
 
         public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string, T>>> valueFactory)
