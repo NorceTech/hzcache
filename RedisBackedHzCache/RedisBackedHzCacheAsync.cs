@@ -55,9 +55,26 @@ namespace HzCache
             return hzCache.SetAsync(key, value, ttl);
         }
 
-        public Task<T> GetOrSetAsync<T>(string key, Func<string, Task<T>> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
+        public async Task<T> GetOrSetAsync<T>(string key, Func<string, Task<T>> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
-            return hzCache.GetOrSetAsync(key, valueFactory, ttl, maxMsToWaitForFactory);
+            var value = await hzCache.GetAsync<T>(key);
+            if (value != null)
+            {
+                return value;
+            }
+
+            if (options.useRedisAs2ndLevelCache)
+            {
+                var redisValue = await GetRedisValueAsync(key);
+                if (!redisValue.IsNull)
+                {
+                    var ttlValue = await TTLValue.FromRedisValueAsync<T>(Encoding.ASCII.GetBytes(redisValue.ToString()));
+                    hzCache.SetRaw(key, ttlValue);
+                    return (T)ttlValue.value;
+                }
+            }
+
+            return await hzCache.GetOrSetAsync(key, valueFactory, ttl, maxMsToWaitForFactory);
         }
 
         public Task<IList<T>> GetOrSetBatchAsync<T>(IList<string> keys, Func<IList<string>, Task<List<KeyValuePair<string, T>>>> valueFactory)
@@ -67,7 +84,8 @@ namespace HzCache
 
         public async Task<IList<T>> GetOrSetBatchAsync<T>(IList<string> keys, Func<IList<string>, Task<List<KeyValuePair<string, T>>>> valueFactory, TimeSpan ttl)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetOrSetBatch, HzActivities.Area.RedisBackedHzCache, async: true, key: string.Join(",", keys ?? new List<string>()));
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetOrSetBatch, HzActivities.Area.RedisBackedHzCache, async: true,
+                key: string.Join(",", keys ?? new List<string>()));
             Func<IList<string>, Task<List<KeyValuePair<string, T>>>> redisFactory = async idList =>
             {
                 // Create a list of redis keys from the list of cache keys

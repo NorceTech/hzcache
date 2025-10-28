@@ -219,6 +219,23 @@ namespace HzCache
 
         public T GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
+            var value = hzCache.Get<T>(key);
+            if (value != null)
+            {
+                return value;
+            }
+
+            if (options.useRedisAs2ndLevelCache)
+            {
+                var redisValue = GetRedisValue(key);
+                if (!redisValue.IsNull)
+                {
+                    var ttlValue = TTLValue.FromRedisValue<T>(Encoding.ASCII.GetBytes(redisValue.ToString()));
+                    hzCache.SetRaw(key, ttlValue);
+                    return (T)ttlValue.value;
+                }
+            }
+
             return hzCache.GetOrSet(key, valueFactory, ttl, maxMsToWaitForFactory);
         }
 
@@ -229,7 +246,8 @@ namespace HzCache
 
         public IList<T> GetOrSetBatch<T>(IList<string> keys, Func<IList<string>, List<KeyValuePair<string, T>>> valueFactory, TimeSpan ttl)
         {
-            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetOrSetBatch, HzActivities.Area.RedisBackedHzCache, key: string.Join(",", keys ?? new List<string>()));
+            using var activity = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.GetOrSetBatch, HzActivities.Area.RedisBackedHzCache,
+                key: string.Join(",", keys ?? new List<string>()));
             Func<IList<string>, List<KeyValuePair<string, T>>> redisFactory = idList =>
             {
                 // Create a list of redis keys from the list of cache keys

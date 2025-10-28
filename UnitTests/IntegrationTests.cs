@@ -298,10 +298,11 @@ namespace UnitTests
             var v1 = c1.GetOrSet("1", _ => new Mocko(10), TimeSpan.FromMinutes(1));
             Assert.IsNotNull(v1);
             Assert.IsTrue(c1.Get<Mocko>("1").num == 10);
-            await Task.Delay(100);
-            var c21 = await c2.GetAsync<Mocko>("1");
+            await Task.Delay(200);
+            var c21 = await c2.GetOrSetAsync("1", _ => Task.FromResult(new Mocko(20)), TimeSpan.FromMinutes(1));
             Assert.IsTrue(c21.num == 10);
             Assert.IsTrue(c21.guid != v1.guid);
+            await c1.RemoveAsync("1");
         }
 
 
