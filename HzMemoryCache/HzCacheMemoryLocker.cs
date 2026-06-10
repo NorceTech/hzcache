@@ -10,6 +10,7 @@ namespace HzCache
     public class HzCacheMemoryLockerOptions
     {
         public int lockPoolSize { get; set; } = 7872;
+        public int maxLockRetries { get; set; } = 3;
     }
 
     public class HzCacheMemoryLocker
@@ -93,17 +94,20 @@ namespace HzCache
             var acquired = false;
             using (var waitForSemaphore = HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.WaitForSemaphore, HzActivities.Area.HzCacheMemoryLocker, key: key, async: true))
             {
-                try
+                for (var attempt = 0; attempt <= options.maxLockRetries; attempt++)
                 {
-                    acquired = await semaphore.WaitAsync(timeout, token).ConfigureAwait(false);
-                }
-                catch (ObjectDisposedException)
-                {
-                    // The MemoryCache evicted and disposed this semaphore between GetSemaphore and WaitAsync.
-                    // Remove the stale entry and retry with a fresh semaphore.
-                    lockCache.Remove(key);
-                    semaphore = GetSemaphore(cacheName, cacheInstanceId, key, logger);
-                    acquired = await semaphore.WaitAsync(timeout, token).ConfigureAwait(false);
+                    try
+                    {
+                        acquired = await semaphore.WaitAsync(timeout, token).ConfigureAwait(false);
+                        break;
+                    }
+                    catch (ObjectDisposedException) when (attempt < options.maxLockRetries)
+                    {
+                        // The MemoryCache evicted and disposed this semaphore between GetSemaphore and WaitAsync.
+                        // Remove the stale entry and retry with a fresh semaphore.
+                        lockCache.Remove(key);
+                        semaphore = GetSemaphore(cacheName, cacheInstanceId, key, logger);
+                    }
                 }
             }
 
@@ -147,15 +151,18 @@ namespace HzCache
                    HzActivities.Source.StartActivityWithCommonTags(HzActivities.Names.WaitForSemaphore,
                        HzActivities.Area.HzCacheMemoryLocker, key: key))
             {
-                try
+                for (var attempt = 0; attempt <= options.maxLockRetries; attempt++)
                 {
-                    acquired = semaphore.Wait(timeout, token);
-                }
-                catch (ObjectDisposedException)
-                {
-                    lockCache.Remove(key);
-                    semaphore = GetSemaphore(cacheName, cacheInstanceId, key, logger);
-                    acquired = semaphore.Wait(timeout, token);
+                    try
+                    {
+                        acquired = semaphore.Wait(timeout, token);
+                        break;
+                    }
+                    catch (ObjectDisposedException) when (attempt < options.maxLockRetries)
+                    {
+                        lockCache.Remove(key);
+                        semaphore = GetSemaphore(cacheName, cacheInstanceId, key, logger);
+                    }
                 }
             }
 
