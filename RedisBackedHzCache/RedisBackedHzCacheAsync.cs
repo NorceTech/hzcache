@@ -57,7 +57,7 @@ namespace HzCache
 
         public async Task<T> GetOrSetAsync<T>(string key, Func<string, Task<T>> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
-            var value = await hzCache.GetAsync<T>(key);
+            var value = await hzCache.GetAsync<T>(key).ConfigureAwait(false);
             if (!HzMemoryCache.IsNullOrDefault(value))
             {
                 return value;
@@ -65,16 +65,16 @@ namespace HzCache
 
             if (options.useRedisAs2ndLevelCache)
             {
-                var redisValue = await GetRedisValueAsync(key);
+                var redisValue = await GetRedisValueAsync(key).ConfigureAwait(false);
                 if (!redisValue.IsNull)
                 {
-                    var ttlValue = await TTLValue.FromRedisValueAsync<T>(Encoding.ASCII.GetBytes(redisValue.ToString()));
+                    var ttlValue = await TTLValue.FromRedisValueAsync<T>(Encoding.ASCII.GetBytes(redisValue.ToString())).ConfigureAwait(false);
                     hzCache.SetRaw(key, ttlValue);
                     return (T)ttlValue.value;
                 }
             }
 
-            return await hzCache.GetOrSetAsync(key, valueFactory, ttl, maxMsToWaitForFactory);
+            return await hzCache.GetOrSetAsync(key, valueFactory, ttl, maxMsToWaitForFactory).ConfigureAwait(false);
         }
 
         public Task<IList<T>> GetOrSetBatchAsync<T>(IList<string> keys, Func<IList<string>, Task<List<KeyValuePair<string, T>>>> valueFactory)
