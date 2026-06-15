@@ -58,7 +58,7 @@ namespace HzCache
         public async Task<T> GetOrSetAsync<T>(string key, Func<string, Task<T>> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
             var value = await hzCache.GetAsync<T>(key);
-            if (value != null)
+            if (!HzMemoryCache.IsNullOrDefault(value))
             {
                 return value;
             }

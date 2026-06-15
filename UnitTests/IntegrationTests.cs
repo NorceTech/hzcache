@@ -308,6 +308,71 @@ namespace UnitTests
 
         [TestMethod]
         [TestCategory("Integration")]
+        public async Task TestRedisGetOrSet_ValueType_CallsFactory()
+        {
+            // Arrange
+            var c1 = new RedisBackedHzCache(
+                new RedisBackedHzCacheOptions { redisConnectionString = ConnectionString, applicationCachePrefix = "test", instanceId = "c1", useRedisAs2ndLevelCache = false });
+            var factoryCalled = false;
+
+            // Act
+            var result = c1.GetOrSet("int-key", _ =>
+            {
+                factoryCalled = true;
+                return 42;
+            }, TimeSpan.FromMinutes(1));
+
+            // Assert
+            Assert.IsTrue(factoryCalled, "Factory should be called on cache miss for value types");
+            Assert.AreEqual(42, result);
+            await c1.RemoveAsync("int-key");
+        }
+
+        [TestMethod]
+        [TestCategory("Integration")]
+        public async Task TestRedisGetOrSetAsync_ValueType_CallsFactory()
+        {
+            // Arrange
+            var c1 = new RedisBackedHzCache(
+                new RedisBackedHzCacheOptions { redisConnectionString = ConnectionString, applicationCachePrefix = "test", instanceId = "c1", useRedisAs2ndLevelCache = false });
+            var factoryCalled = false;
+
+            // Act
+            var result = await c1.GetOrSetAsync("int-key-async", _ =>
+            {
+                factoryCalled = true;
+                return Task.FromResult(42);
+            }, TimeSpan.FromMinutes(1));
+
+            // Assert
+            Assert.IsTrue(factoryCalled, "Factory should be called on cache miss for value types");
+            Assert.AreEqual(42, result);
+            await c1.RemoveAsync("int-key-async");
+        }
+
+        [TestMethod]
+        [TestCategory("Integration")]
+        public async Task TestRedisGetOrSetAsync_ValueType_ReturnsCachedValue()
+        {
+            // Arrange
+            var c1 = new RedisBackedHzCache(
+                new RedisBackedHzCacheOptions { redisConnectionString = ConnectionString, applicationCachePrefix = "test", instanceId = "c1", useRedisAs2ndLevelCache = false });
+            await c1.GetOrSetAsync("int-cached", _ => Task.FromResult(42), TimeSpan.FromMinutes(1));
+
+            // Act — second call should return cached value, not call factory
+            var result = await c1.GetOrSetAsync("int-cached", _ =>
+            {
+                Assert.Fail("Factory should not be called when value is already cached");
+                return Task.FromResult(0);
+            }, TimeSpan.FromMinutes(1));
+
+            // Assert
+            Assert.AreEqual(42, result);
+            await c1.RemoveAsync("int-cached");
+        }
+
+        [TestMethod]
+        [TestCategory("Integration")]
         public async Task TestRedisBackplaneDelete()
         {
             var redis = ConnectionMultiplexer.Connect(ConnectionString);
