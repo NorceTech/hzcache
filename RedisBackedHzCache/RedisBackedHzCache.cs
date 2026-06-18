@@ -220,7 +220,7 @@ namespace HzCache
         public T GetOrSet<T>(string key, Func<string, T> valueFactory, TimeSpan ttl, long maxMsToWaitForFactory = 10000)
         {
             var value = hzCache.Get<T>(key);
-            if (value != null)
+            if (!HzMemoryCache.IsNullOrDefault(value))
             {
                 return value;
             }
