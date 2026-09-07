@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Diagnostics;
 
 namespace HzCache.Diagnostics
@@ -6,7 +6,8 @@ namespace HzCache.Diagnostics
     public static class HzActivities
     {
         public const string HzCacheActivitySourceName = "HzMemoryCache";
-        public static ActivitySource? Source => new(HzCacheActivitySourceName);
+        private static readonly ActivitySource source = new(HzCacheActivitySourceName);
+        public static ActivitySource Source => source;
 
         public static class Names
         {
