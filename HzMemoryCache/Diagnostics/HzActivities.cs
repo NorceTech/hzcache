@@ -6,7 +6,7 @@ namespace HzCache.Diagnostics
     public static class HzActivities
     {
         public const string HzCacheActivitySourceName = "HzMemoryCache";
-        public static ActivitySource? Source => new(HzCacheActivitySourceName);
+        public static readonly ActivitySource Source = new(HzCacheActivitySourceName);
 
         public static class Names
         {
