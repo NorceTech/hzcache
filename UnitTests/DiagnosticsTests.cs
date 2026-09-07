@@ -17,21 +17,21 @@ namespace UnitTests
         public async Task CacheOperationsDoNotCreateNewActivitySources()
         {
             // Every ActivitySource constructor registers the instance in the runtime's global list and
-            // invokes ShouldListenTo on all listeners, so counting those callbacks after registration
-            // detects any per-call construction of the source.
+            // invokes ShouldListenTo on all listeners, so any source with our name other than the one
+            // expected instance is a per-call construction. Touch Source first so the static instance
+            // exists before the listener is registered, regardless of test ordering.
+            var expected = HzActivities.Source;
             var created = 0;
-            var armed = false;
             using var listener = new ActivityListener
             {
                 ShouldListenTo = source =>
                 {
-                    if (armed && source.Name == HzActivities.HzCacheActivitySourceName)
+                    if (source.Name == HzActivities.HzCacheActivitySourceName && !ReferenceEquals(source, expected))
                         Interlocked.Increment(ref created);
                     return false;
                 }
             };
             ActivitySource.AddActivityListener(listener);
-            armed = true;
 
             using var cache = new HzMemoryCache(new HzCacheOptions { cleanupJobInterval = 20, notificationType = NotificationType.Sync });
             for (var i = 0; i < 100; i++)
